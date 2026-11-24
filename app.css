@@ -21,7 +21,7 @@
   --safe-t: env(safe-area-inset-top, 0px);
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) { :root:not([data-theme]) {
+@media (prefers-color-scheme: dark) { :root[data-theme="auto"] {
   --bg: #25282D; --bg2: #2E3238; --card: #30343A; --raise: #373B42;
   --ink: #EFEDE8; --ink2: #B6BAC1; --ink3: #8A8F97; --line: rgba(255,255,255,.08); --line2: rgba(255,255,255,.15);
   --brand: #9AD9B8; --good: #4CC98E;

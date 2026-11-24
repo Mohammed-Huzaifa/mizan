@@ -36,8 +36,8 @@ const P = {
 };
 const icon = (n, s = 20) => `<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${P[n] || ''}</svg>`;
 const FLAME = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12.3 2.2c.5 2.9-.8 4.6-2.3 6.3-1.6 1.8-3.4 3.7-3.4 6.6A5.4 5.4 0 0 0 12 20.6a5.4 5.4 0 0 0 5.4-5.7c-.2-2.4-1.4-4-2.7-5.3.1 1.6-.5 2.8-1.5 3.3.5-4.1-.2-7.9-.9-10.7Z"/></svg>';
-// The mark: ن, the last letter of ميزان. A sun setting on the horizon into a scale pan.
-const MARK = (ink = 'currentColor') => `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M10 29.4h44" stroke="${ink}" stroke-opacity=".25" stroke-width="1.6" stroke-linecap="round"/><path d="M16.4 29.4c0 9.4 7 16.4 15.6 16.4s15.6-7 15.6-16.4" fill="none" stroke="${ink}" stroke-width="6" stroke-linecap="round"/><circle cx="32" cy="29.4" r="6.5" fill="#F2A93B"/></svg>`;
+// The mark: a mihrab arch with the sun resting on the horizon, which is also the beam of the scale (mizan).
+const MARK = (ink = 'currentColor') => `<svg viewBox="0 0 64 64" aria-hidden="true"><path d="M18.5 51.2V31.3C18.5 21.9 24.5 16.4 32 12.8C39.5 16.4 45.5 21.9 45.5 31.3V51.2" fill="none" stroke="${ink}" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/><circle cx="32" cy="36.5" r="4.8" fill="#EDA845"/><path d="M24 43.8H40" stroke="${ink}" stroke-width="2.4" stroke-linecap="round"/></svg>`;
 
 /* ---------- dates ---------- */
 const pad = n => String(n).padStart(2, '0');
@@ -1383,8 +1383,8 @@ function go(tab) {
 }
 function applyTheme() {
   const t = S ? S.set.theme : 'light';
-  if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
-  lsSet('mizan.theme', t === 'auto' ? null : t);
+  document.documentElement.dataset.theme = t;
+  lsSet('mizan.theme', t);
   const dim = t === 'dim' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   $('#themeColor').content = dim ? '#25282D' : '#F7F5F0';
 }
