@@ -61,7 +61,7 @@ function dur(ms) {
 function freshState(o = {}) {
   const t = keyOf(new Date()), now = Date.now();
   return {
-    v: 3, name: o.name || '', start: t, foods: [],
+    v: 4, name: o.name || '', start: t, foods: [],
     areas: clone(DEFAULT_AREAS).map(a => ({...a, u: now})),
     habits: DEFAULT_HABITS.map(h => ({...h, created: t, u: now})),
     azkar: DEFAULT_AZKAR.map(s => slimSet(s, now)),
@@ -104,6 +104,19 @@ function migrate(s) {
     if (!s.azkar.some(x => x.id === 'life') && !s.del.life) { const i = s.azkar.findIndex(x => x.id === 'daily'); s.azkar.splice(i < 0 ? s.azkar.length : i, 0, slimSet(DEFAULT_AZKAR.find(x => x.id === 'life'), now)); }
     if (!s.habits.some(h => h.id === 'life-duas') && !s.del['life-duas']) { const i = s.habits.findIndex(h => h.id === 'daily-dhikr'); s.habits.splice(i < 0 ? s.habits.length : i + 1, 0, {...DEFAULT_HABITS.find(h => h.id === 'life-duas'), created: keyOf(new Date()), u: now}); }
     s.v = 3;
+  }
+  if (s.v < 4) {   // v4: daily dhikr gets Kalima, Salawat and Rabbi inni lima anzalta at 100 each
+    const set = s.azkar.find(x => x.id === 'daily');
+    if (set) {
+      const has = k => set.items.find(i => i.k === k);
+      const at = k => set.items.findIndex(i => i.k === k);
+      if (!has('kalima')) set.items.splice(Math.max(0, at('waking') + 1), 0, {id: uid(), k: 'kalima', n: 100});
+      if (has('istighfar100')) has('istighfar100').n = 100; else set.items.push({id: uid(), k: 'istighfar100', n: 100});
+      if (has('salawat')) has('salawat').n = 100; else set.items.push({id: uid(), k: 'salawat', n: 100});
+      if (!has('faqir')) set.items.splice(at('salawat') + 1, 0, {id: uid(), k: 'faqir', n: 100});
+      set.u = Date.now();
+    }
+    s.v = 4;
   }
   return s;
 }

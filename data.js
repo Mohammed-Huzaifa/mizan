@@ -393,6 +393,12 @@ Object.assign(Z, {
     why: 'The Prophet ﷺ said it in some of his prayers. He told ‘A’ishah an easy reckoning is when Allah looks at your record and overlooks it.',
     src: 'Ahmad 24215'},
 });
+Z.kalima = {t: 'Kalima Tayyiba',
+  ar: 'لَا إِلَٰهَ إِلَّا اللَّهُ مُحَمَّدٌ رَسُولُ اللَّهِ',
+  tr: 'La ilaha illallahu Muhammadur-Rasulullah.',
+  en: 'There is no god but Allah, and Muhammad is the Messenger of Allah.',
+  why: 'The best dhikr is La ilaha illallah (At-Tirmidhi 3383). Renew your iman with it through the day: whoever’s last words are La ilaha illallah enters Jannah (Abu Dawud 3116).',
+  src: 'At-Tirmidhi 3383'};
 Object.assign(Z.afini, {f: 'Health'}); Object.assign(Z.afiyah, {f: 'Health'});
 
 const zi = (k, n, extra) => ({...Z[k], k, n, ...extra});
@@ -439,8 +445,9 @@ const DEFAULT_AZKAR = [
     zi('thabbit', 1), zi('tuzigh', 1), zi('jannah', 3), zi('hisab', 1),
   ]},
   {id: 'daily', name: 'Daily dhikr', hint: 'Spread through the day', slot: 'day', items: [
-    zi('waking', 1), zi('istighfar100', 100), zi('tahlil', 100), zi('mizan', 33), zi('hawqala', 33),
-    zi('salawat', 33, {why: 'Whoever sends one salawat, Allah sends ten upon him.', src: 'Muslim 408'}),
+    zi('waking', 1), zi('kalima', 100), zi('istighfar100', 100),
+    zi('salawat', 100, {why: 'Whoever sends one salawat, Allah sends ten upon him, erases ten sins and raises him ten levels.', src: 'Muslim 408, An-Nasa’i 1297'}),
+    zi('faqir', 100), zi('tahlil', 100), zi('mizan', 33), zi('hawqala', 33),
   ]},
 ];
 
