@@ -66,7 +66,7 @@ function freshState(o = {}) {
     habits: DEFAULT_HABITS.map(h => ({...h, created: t, u: now})),
     azkar: DEFAULT_AZKAR.map(s => slimSet(s, now)),
     log: {}, tasks: [], quran: {pos: 0, from: t},
-    set: {goal: 80, weight: o.weight || 62, theme: 'light', nut: {kcal: 2200, c: 250, f: 65}, view: 'time', dayStart: 'auto', hijri: 0, tr: true, en: true,
+    set: {goal: 80, weight: o.weight || 62, theme: 'light', nut: {kcal: 2200, c: 250, f: 65}, view: 'time', hijri: 0, tr: true, en: true,
       prayer: {lat: 12.9716, lng: 77.5946, city: 'Bengaluru', method: 'karachi', asr: 'hanafi', ...(o.prayer || {})}},
     del: {}, updatedAt: now,
   };
@@ -83,7 +83,8 @@ function slimSet(s, now) {
 const zItem = i => ({...(Z[i.k] || {}), ...i});
 function migrate(s) {
   s.del = s.del || {}; s.tasks = s.tasks || []; s.log = s.log || {};
-  s.set = {goal: 80, weight: 62, theme: 'auto', view: 'time', dayStart: 'auto', hijri: 0, tr: true, en: true, ...(s.set || {})};
+  s.set = {goal: 80, weight: 62, theme: 'auto', view: 'time', hijri: 0, tr: true, en: true, ...(s.set || {})};
+  delete s.set.dayStart;
   s.set.prayer = {lat: 12.9716, lng: 77.5946, city: 'Bengaluru', method: 'karachi', asr: 'hanafi', ...(s.set.prayer || {})};
   s.quran = s.quran || {pos: 0, from: s.start};
   s.foods = s.foods || [];
@@ -140,11 +141,8 @@ function ptimes(dk) {
   if (!ptCache.has(ck)) ptCache.set(ck, Prayer.times(dateOf(dk), p.lat, p.lng, p.method, p.asr));
   return ptCache.get(ck);
 }
-function todayKey() {
-  const now = new Date(), ds = S ? S.set.dayStart : 'auto';
-  if (ds === 'auto') { const cal = keyOf(now); return now < ptimes(cal).lastThirdPrev ? addDays(cal, -1) : cal; }
-  return keyOf(new Date(now - (+ds || 0) * 36e5));
-}
+// The day always starts at midnight.
+const todayKey = () => keyOf(new Date());
 const PRAYERS = [['fajr', 'Fajr', 'sunrise'], ['dhuhr', 'Dhuhr', 'asr'], ['asr', 'Asr', 'maghrib'], ['maghrib', 'Maghrib', 'isha'], ['isha', 'Isha', 'lastThird']];
 function hijri(dk, plusOne) {
   const d = dateOf(dk); d.setDate(d.getDate() + (+S.set.hijri || 0) + (plusOne ? 1 : 0));
@@ -386,7 +384,7 @@ const SKIES = {
   isha: ['linear-gradient(170deg,#263274 0%,#3A4892 60%,#5C66AE 100%)', .6],
 };
 function period(T, now) {
-  if (now < T.fajr) return {id: 'night', name: 'Tahajjud', slot: 'night'};
+  if (now < T.fajr) return {id: 'night', name: 'Isha', slot: 'night'};   // after midnight, until Fajr
   if (now < T.sunrise) return {id: 'fajr', name: 'Fajr', slot: 'morning', pr: 0};
   if (now < T.dhuhr) return {id: 'morning', name: 'Duha', slot: 'morning'};
   if (now < T.asr) return {id: 'dhuhr', name: 'Dhuhr', slot: 'day', pr: 1};
@@ -830,7 +828,6 @@ function renderYou() {
     <div class="group-t">Day</div>
     <div class="group">
       <label class="srow"><span class="lab">Daily goal<small>A balanced day keeps your streak</small></span><select data-set="goal">${[50, 60, 70, 75, 80, 85, 90, 100].map(x => `<option value="${x}"${S.set.goal === x ? ' selected' : ''}>${x}%</option>`).join('')}</select></label>
-      <label class="srow"><span class="lab">New day starts</span><select data-set="dayStart"><option value="auto"${S.set.dayStart === 'auto' ? ' selected' : ''}>At the last third of night</option>${[0, 1, 2, 3, 4].map(x => `<option value="${x}"${String(S.set.dayStart) === String(x) ? ' selected' : ''}>${x ? `${x}:00 AM` : 'Midnight'}</option>`).join('')}</select></label>
     </div>
     <div class="group-t">Appearance</div>
     <div class="group">
@@ -1475,7 +1472,6 @@ document.addEventListener('change', e => {
   else if (k === 'method' || k === 'asr') p[k] = t.value;
   else if (k === 'hijri') S.set.hijri = +t.value;
   else if (k === 'goal') S.set.goal = +t.value;
-  else if (k === 'dayStart') S.set.dayStart = t.value === 'auto' ? 'auto' : +t.value;
   else if (k === 'tr' || k === 'en') S.set[k] = t.checked;
   else if (k.startsWith('nut-')) { const x = +t.value; if (!(x > 0)) return; S.set.nut[k.slice(4)] = x; }
   ptCache.clear(); save(); render();
