@@ -61,12 +61,12 @@ function dur(ms) {
 function freshState(o = {}) {
   const t = keyOf(new Date()), now = Date.now();
   return {
-    v: 1, name: o.name || '', start: t,
+    v: 2, name: o.name || '', start: t, foods: [],
     areas: clone(DEFAULT_AREAS).map(a => ({...a, u: now})),
     habits: DEFAULT_HABITS.map(h => ({...h, created: t, u: now})),
     azkar: DEFAULT_AZKAR.map(s => slimSet(s, now)),
     log: {}, tasks: [], quran: {pos: 0, from: t},
-    set: {goal: 80, weight: o.weight || 62, theme: 'auto', view: 'time', dayStart: 'auto', hijri: 0, tr: true, en: true,
+    set: {goal: 80, weight: o.weight || 62, theme: 'light', nut: {kcal: 2200, c: 250, f: 65}, view: 'time', dayStart: 'auto', hijri: 0, tr: true, en: true,
       prayer: {lat: 12.9716, lng: 77.5946, city: 'Bengaluru', method: 'karachi', asr: 'hanafi', ...(o.prayer || {})}},
     del: {}, updatedAt: now,
   };
@@ -86,6 +86,19 @@ function migrate(s) {
   s.set = {goal: 80, weight: 62, theme: 'auto', view: 'time', dayStart: 'auto', hijri: 0, tr: true, en: true, ...(s.set || {})};
   s.set.prayer = {lat: 12.9716, lng: 77.5946, city: 'Bengaluru', method: 'karachi', asr: 'hanafi', ...(s.set.prayer || {})};
   s.quran = s.quran || {pos: 0, from: s.start};
+  s.foods = s.foods || [];
+  s.set.nut = {kcal: 2200, c: 250, f: 65, ...(s.set.nut || {})};
+  if (s.set.theme === 'dark') s.set.theme = 'dim';
+  if ((s.v || 1) < 2) {   // v2: food log, in-app surahs, lighter default theme
+    const now = Date.now(), patch = {yaseen: {surah: 36}, kahf: {surah: 18}, waqiah: {surah: 56}, mulk: {surah: 67}, water: {food: 'w'}, protein: {food: 'p', step: 5}, fruit: {food: 'fruit'}, veg: {food: 'veg'}, junk: {food: 'junk'}, sugar: {food: 'sugar'}, read: {book: {t: '', total: 0, page: 0, from: ''}}};
+    s.habits.forEach(h => { if (!patch[h.id]) return; Object.assign(h, patch[h.id]); if (h.surah) delete h.link; if (h.id === 'protein') delete h.quick; h.u = now; });
+    if (!s.habits.some(h => h.id === 'fiber') && !s.del.fiber) {
+      const i = s.habits.findIndex(h => h.id === 'protein');
+      s.habits.splice(i < 0 ? s.habits.length : i + 1, 0, {...DEFAULT_HABITS.find(h => h.id === 'fiber'), created: keyOf(new Date()), u: now});
+    }
+    if (s.set.theme === 'auto') s.set.theme = 'light';
+    s.v = 2;
+  }
   return s;
 }
 function load() {
@@ -98,7 +111,7 @@ function writeLocal() {
 function save() { S.updatedAt = Date.now(); writeLocal(); if (sync.key) schedulePush(); }
 
 let S = load();
-const ui = {tab: 'today', date: null, area: null, sheets: [], prev: {}, prevScore: null, open: {}, metric: null, cal: null, rd: null, tasbihN: 33};
+const ui = {tab: 'today', date: null, area: null, sheets: [], prev: {}, prevScore: null, open: {}, metric: null, cal: null, rd: null, tasbihN: 33, zx: {}};
 
 /* ---------- prayer times ---------- */
 const ptCache = new Map();
@@ -127,7 +140,16 @@ function hijri(dk, plusOne) {
 const area = id => S.areas.find(a => a.id === id) || {id, name: 'Other', c: 'clay'};
 const habit = id => S.habits.find(h => h.id === id);
 const dayLog = dk => S.log[dk] || {};
-const val = (h, dk) => dayLog(dk)[h.id];
+const raw = (h, dk) => dayLog(dk)[h.id];
+// Some habits also take from the food log: protein, fibre and water add up, fruit and veg tick, junk and sugar slip.
+function val(h, dk) {
+  const v = raw(h, dk);
+  if (!h.food) return v;
+  const f = foodSum(dk); if (!f.n) return v;
+  if (h.type === 'check' || h.type === 'avoid') return v || (f.tags[h.food] ? 1 : v);
+  if (h.type === 'count') { const x = Math.max(0, (+v || 0) + foodPart(h, dk)); return x ? Math.round(x * 10) / 10 : undefined; }
+  return v;
+}
 const bits = v => { let n = 0; for (let i = 0; i < 5; i++) if (v & (1 << i)) n++; return n; };
 function scheduled(h, dk) {
   if (h.created && dk < h.created) return false;
@@ -221,6 +243,7 @@ function quickList(h) {
 function setVal(h, dk, v) {
   const before = {p: prog(h, dk), score: score(dk)};
   const l = S.log[dk] = {...(S.log[dk] || {})};
+  if (h.food && h.type === 'count' && typeof v === 'number') v = Math.round((v - foodPart(h, dk)) * 10) / 10;
   if (v == null || v === 0 || v === false) delete l[h.id]; else l[h.id] = v;
   l._u = Date.now();
   ui.prev[h.id] = before.p; ui.prevScore = before.score;
@@ -335,13 +358,13 @@ function celebrate() {
 
 /* ================= TODAY ================= */
 const SKIES = {
-  night: ['linear-gradient(170deg,#121631 0%,#262A57 55%,#463A6C 100%)', .9],
-  fajr: ['linear-gradient(175deg,#27346A 0%,#6E6699 50%,#E39C82 100%)', .35],
+  night: ['linear-gradient(170deg,#2C3168 0%,#4B4C8C 55%,#7D6AA8 100%)', .8],
+  fajr: ['linear-gradient(175deg,#3A4782 0%,#7F76A8 50%,#EBA88C 100%)', .3],
   morning: ['linear-gradient(175deg,#79B4E4 0%,#B6D8F1 55%,#F3E3C9 100%)', 0, 1],
   dhuhr: ['linear-gradient(175deg,#2A78C2 0%,#5C9FDD 55%,#9CC8EE 100%)', 0],
   asr: ['linear-gradient(175deg,#E2A24B 0%,#EFC37E 55%,#F7E3BC 100%)', 0, 1],
-  maghrib: ['linear-gradient(175deg,#352A63 0%,#A84B6B 55%,#EE875A 100%)', .15],
-  isha: ['linear-gradient(170deg,#0D1230 0%,#1A2350 60%,#2B3266 100%)', .75],
+  maghrib: ['linear-gradient(175deg,#4A3A7A 0%,#B65A78 55%,#F09265 100%)', .12],
+  isha: ['linear-gradient(170deg,#263274 0%,#3A4892 60%,#5C66AE 100%)', .6],
 };
 function period(T, now) {
   if (now < T.fajr) return {id: 'night', name: 'Tahajjud', slot: 'night'};
@@ -433,20 +456,22 @@ function renderBalance(dk) {
     <div class="goal-line">${isHit ? `<span><b>Balanced day.</b> Your streak is safe.</span>` : `<span><b>${need} more</b> to reach ${goal}% today</span>`}<span>${hs.length} habits</span></div>
   </section>`;
 }
-function metaFor(h, dk) {
+function metaFor(h, dk, box) {
   const v = val(h, dk), bits_ = [];
-  if (h.type === 'count') bits_.push(`<span class="tag">${fmtVal(h, v)}</span> of ${fmtTarget(h)}`);
-  if (h.type === 'limit') bits_.push(v == null ? `Max ${fmtTarget(h)} · log tonight` : `<span class="tag">${fmtVal(h, v)}</span> of ${fmtTarget(h)} max`);
+  if (h.type === 'count' && !box) bits_.push(`<span class="tag">${fmtVal(h, v)}</span> of ${fmtTarget(h)}`);
+  if (h.type === 'limit' && !box) bits_.push(v == null ? `Max ${fmtTarget(h)} · log tonight` : `<span class="tag">${fmtVal(h, v)}</span> of ${fmtTarget(h)} max`);
+  if (h.food && (h.type === 'check' || h.type === 'avoid') && !raw(h, dk) && foodSum(dk).tags[h.food]) bits_.push(`<span class="tag">${esc(foodSum(dk).tags[h.food].slice(0, 2).join(', '))}</span>`);
+  if (h.book && h.book.t) { const pg = bookPage(h, dk); bits_.push(`${esc(h.book.t)}${pg != null ? ` · p. ${pg}${h.book.total ? ` of ${h.book.total}` : ''}` : ''}`); }
   if (h.type === 'avoid') { const st = habitStreak(h); bits_.push(v ? '<span class="tag">Slipped today</span>' : `Clean${st ? ` · ${st} day${st > 1 ? 's' : ''}` : ''}`); }
   if (h.quran) bits_.push(quranLabel(quranPos(dk)).text);
   if (h.azkar) {
     const set = S.azkar.find(s => s.id === h.azkar);
     if (set) {
       const z = zState(dk, set.id), done = set.items.filter(i => (z.c[i.id] || 0) >= i.n).length;
-      if (h.type === 'check' && !v) bits_.push(set.rounds ? `${z.r || 0} of ${set.rounds} rounds` : `${done} of ${set.items.length}`);
+      if (h.type === 'check' && !v) bits_.push(set.rounds ? `${z.r || 0} of ${set.rounds} rounds` : `${done} of ${set.items.length} done`);
     }
   }
-  if (h.note && bits_.length < 2) bits_.push(esc(h.note));
+  if (h.type === 'avoid' && h.food && !v) {} else if (h.note && bits_.length < 2 && !(h.book && h.book.t)) bits_.push(esc(h.note));
   if (h.days && h.days.length && h.days.length < 7) bits_.push(h.days.map(d => DOW[d]).join(', '));
   return bits_.join('<span class="dot"></span>');
 }
@@ -458,18 +483,50 @@ function renderRow(h, dk) {
   else if (h.type === 'avoid') ctrl = v ? `<svg class="mk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg>` : `<span class="fill"></span><svg class="mk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg>`;
   else ctrl = `${ring(40, 3, p, o0)}<span class="fill"></span><svg class="mk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.2 4.2L19 7"/></svg><span class="lbl">${h.type === 'limit' && v == null ? '–' : compact(h, v)}</span>`;
   if (h.type === 'limit' && v != null && +v > h.target) ctrl = `${ring(40, 3, 1)}<span class="lbl" style="color:var(--bad)">${compact(h, v)}</span>`;
-  if (h.azkar && !ok) act = `<button class="act" data-act="read" data-id="${h.azkar}">Begin</button>`;
-  else if (h.quran && !ok) act = `<button class="act" data-act="link" data-url="https://quran.com/juz/${quranLabel(quranPos(dk)).para}">Open</button>`;
+  const set = h.azkar ? S.azkar.find(s => s.id === h.azkar) : null, box = (h.type === 'count' || h.type === 'limit') && !h.azkar;
+  if (set && !ok) act = `<button class="act" data-act="read" data-id="${h.azkar}">Count</button>`;
+  else if (h.surah && !ok) act = `<button class="act" data-act="surah" data-n="${h.surah}" data-id="${h.id}">Read</button>`;
+  else if (h.quran && !ok) act = `<button class="act" data-act="hizb" data-id="${h.id}">Read</button>`;
   else if (h.link && !ok) act = `<button class="act" data-act="link" data-url="${esc(h.link)}">Open</button>`;
+  else if (h.food && h.type === 'count' && h.food !== 'w' && !ok) act = `<button class="act" data-act="food-focus">Log food</button>`;
   else if (h.type === 'count' && !ok) act = `<button class="act" data-act="inc" data-id="${h.id}">+${esc(fmtStep(h, h.step || 1))}</button>`;
-  else if (h.type === 'limit' && v == null) act = `<button class="act" data-act="detail" data-id="${h.id}">Log</button>`;
   const st = habitStreak(h);
-  const cls = ['row', `c-${a.c}`, ok && 'ok', just && 'just', h.type === 'avoid' && v && 'slipped'].filter(Boolean).join(' ');
+  const cls = ['row', `c-${a.c}`, ok && 'ok', just && 'just', h.type === 'avoid' && v && 'slipped', set && 'zrow'].filter(Boolean).join(' ');
+  const zopen = set && zOpen(set, dk);
   return `<div class="${cls}" data-hid="${h.id}">
     <button class="ck${h.type === 'avoid' ? (v ? ' slip' : ' avoid') : ''}" data-act="tick" data-id="${h.id}" aria-label="${esc(h.name)}">${ctrl}</button>
-    <button class="tap" data-act="detail" data-id="${h.id}"><span class="nm">${esc(h.name)}</span><span class="mt">${metaFor(h, dk)}</span></button>
+    <div class="mid"><button class="tap" data-act="${set ? 'zx' : 'detail'}" data-id="${set ? set.id : h.id}"${set ? ` aria-expanded="${zopen}"` : ''}><span class="nm">${esc(h.name)}${set ? icon('chevD', 16).replace('<svg', '<svg class="zchev"') : ''}</span><span class="mt">${metaFor(h, dk, box)}</span></button>
+    ${box ? amtBox(h, v) : ''}</div>
     ${act || `<span class="sk${st >= 3 ? ' hot' : ''}">${st ? FLAME + st : ''}</span>`}
-  </div>`;
+  </div>${zopen ? zList(set, dk) : ''}`;
+}
+// The amount box: type what you did, e.g. 3000 steps, 1.5 L water, 1h 20m scrolling.
+function amtStr(h, v) {
+  if (v == null || v === '') return '';
+  if (h.unit === 'ml') return String(+(v / 1000).toFixed(2));
+  return String(+(+v).toFixed(1));
+}
+const tgtLabel = h => h.unit === 'steps' ? `${fmtTarget(h)} steps` : fmtTarget(h);
+function amtBox(h, v) {
+  return `<label class="amt"><input data-amt="${h.id}" inputmode="decimal" enterkeyhint="done" autocomplete="off" value="${esc(amtStr(h, v))}" placeholder="0" aria-label="${esc(h.name)}, amount done"><span>${h.unit === 'ml' ? 'L ' : ''}of ${esc(tgtLabel(h))}${h.type === 'limit' ? ' max' : ''}</span></label>`;
+}
+function parseAmt(h, str) {
+  const s = String(str).trim().toLowerCase().replace(/,/g, '');
+  if (!s) return 0;
+  const hm = s.match(/^(\d+)\s*h(?:r|rs|ours?)?\s*(\d+)\s*m?(?:in|ins)?$/) || s.match(/^(\d+):(\d{2})$/);
+  if (hm && h.unit === 'min') return +hm[1] * 60 + +hm[2];
+  const m = s.match(/^(\d*\.?\d+)\s*([a-z]*)$/); if (!m) return null;
+  let x = +m[1]; const u = m[2];
+  if (u === 'k') x *= 1000;
+  if (h.unit === 'ml') { if (u !== 'ml' && (u.startsWith('l') || (!u && x <= 20))) x *= 1000; }
+  if (h.unit === 'min' && u.startsWith('h')) x *= 60;
+  return Math.round(x * 100) / 100;
+}
+function bookPage(h, dk) {
+  const b = h.book; if (!b || !b.from) return null;
+  let p = +b.page || 0;
+  for (let k = b.from; k <= dk; k = addDays(k, 1)) p += +val(h, k) || 0;
+  return b.total ? Math.min(p, b.total) : p;
 }
 function slotWindow(id, T, now) {
   const w = {night: [T.lastThirdPrev, T.fajr], morning: [T.fajr, T.dhuhr], evening: [T.asr, T.isha], sleep: [T.isha, T.lastThird]}[id];
@@ -531,7 +588,7 @@ function renderToday() {
     </header>
     ${renderWeek(dk)}
     <div class="today-grid">
-      <div class="col-a">${renderSky(dk)}${renderBalance(dk)}<div class="hide-m">${renderTasks(dk)}</div></div>
+      <div class="col-a">${renderSky(dk)}${renderBalance(dk)}${renderFood(dk)}<div class="hide-m">${renderTasks(dk)}</div></div>
       <div class="col-b">${renderList(dk)}<div class="hide-d">${renderTasks(dk)}</div>
       <div class="quote"><q>${esc(quote[0])}</q><small>${esc(quote[1])}</small></div></div>
     </div>`;
@@ -549,12 +606,16 @@ function renderDhikr() {
   $('#v-dhikr').innerHTML = `
     <header class="top"><div><div class="eyebrow">${esc(hijri(dk, new Date() >= ptimes(dk).maghrib))}</div><h1>Dhikr</h1></div>
     <button class="icon-btn" data-act="new-set" aria-label="New dhikr set">${icon('plus', 20)}</button></header>
+    <p class="lede-s">Tick each dhikr once you’ve said it, or tap <b>Count</b> to count along with the beads.</p>
     <div class="zsets">${S.azkar.map(set => {
-      const pr = setProgress(set, dk);
-      return `<button class="zset${pr.complete ? ' done' : ''}" data-act="read" data-id="${set.id}">
+      const pr = setProgress(set, dk), open = zOpen(set, dk, true);
+      return `<section class="zcard${pr.complete ? ' done' : ''}${open ? ' open' : ''}"><div class="zset">
+        <button class="zhead" data-act="zx" data-id="${set.id}" aria-expanded="${open}">
         <span class="zr">${ring(52, 4, pr.p)}<span class="ic">${pr.complete ? icon('check', 22) : set.slot === 'sleep' || set.slot === 'evening' ? icon('moon', 22) : set.slot === 'morning' ? icon('sun', 22) : icon('dhikr', 22)}</span></span>
-        <span class="zt"><b>${esc(set.name)}</b><span>${esc(set.hint || '')}</span></span>
-        <span class="zc">${set.rounds ? `${pr.z.r || 0}/${set.rounds}` : `${pr.done}/${pr.total}`}</span></button>`;
+        <span class="zt"><b>${esc(set.name)}</b><span>${esc(set.hint || '')} · ${set.rounds ? `${pr.z.r || 0} of ${set.rounds} rounds` : `${pr.done} of ${pr.total}`}</span></span>
+        ${icon('chevD', 18).replace('<svg', '<svg class="zchev"')}</button>
+        <button class="act" data-act="read" data-id="${set.id}">Count</button></div>
+        ${open ? zList(set, dk) : ''}</section>`;
     }).join('')}</div>
     <section class="card tasbih" style="margin-top:14px">
       <div class="card-h" style="width:100%;margin:0"><h2>Tasbih</h2><span class="sub">${tas} today${rounds ? ` · ${rounds} round${rounds > 1 ? 's' : ''}` : ''}</span></div>
@@ -562,10 +623,10 @@ function renderDhikr() {
       <div class="chips">${[33, 99, 100, 0].map(x => `<button class="chip" data-act="tasbih-n" data-n="${x}" aria-pressed="${n === x}">${x || '∞'}</button>`).join('')}<button class="chip" data-act="tasbih-reset">${icon('reset', 14)} Reset</button></div>
     </section>`;
 }
-function openReader(setId) {
+function openReader(setId, at) {
   const set = S.azkar.find(s => s.id === setId); if (!set) return;
   const dk = todayKey(), z = zState(dk, set.id);
-  let idx = set.items.findIndex(i => (z.c[i.id] || 0) < i.n);
+  let idx = at != null ? at : set.items.findIndex(i => (z.c[i.id] || 0) < i.n);
   ui.rd = {setId, idx: idx < 0 ? 0 : idx, done: idx < 0 && set.items.length > 0 && !set.rounds};
   const el = document.createElement('div'); el.className = 'reader'; el.id = 'reader'; el.setAttribute('role', 'dialog');
   document.body.append(el); document.body.style.overflow = 'hidden';
@@ -583,11 +644,11 @@ function paintReader() {
       <div class="btn-row" style="max-width:360px;margin:0 auto"><button class="btn ghost" data-act="rd-again">${set.rounds ? 'Start again' : 'Read again'}</button><button class="btn" data-act="rd-close">Done</button></div></div>`
     : !it ? `<div class="rd-done"><p>This set is empty. Tap Edit to add dhikr.</p></div>`
     : `<div class="rd-title">${esc(it.t || '')}${it.n > 1 ? ` · ${it.n}×` : ''}</div>
-      ${it.ar ? `<p class="ar${it.ar.length < 60 ? ' lg' : ''}" lang="ar">${esc(it.ar)}</p>` : ''}
+      ${it.ar ? `<p class="ar${it.ar.length < 60 ? ' lg' : ''}" lang="ar" dir="rtl">${esc(arText(it))}</p>` : ''}
       ${S.set.tr && it.tr ? `<p class="tr">${esc(it.tr)}</p>` : ''}
       ${S.set.en && it.en ? `<p class="en">${esc(it.en)}</p>` : ''}
       ${it.why ? `<p class="why">${esc(it.why)}</p>` : ''}
-      ${it.link ? `<p><button class="chip" data-act="link" data-url="${esc(it.link)}">${icon('book', 14)} Open full surah</button></p>` : ''}
+      ${it.surah ? `<p><button class="chip" data-act="surah" data-n="${it.surah}">${icon('book', 14)} Read the full surah</button></p>` : it.link ? `<p><button class="chip" data-act="link" data-url="${esc(it.link)}">${icon('book', 14)} Open full surah</button></p>` : ''}
       <div class="src">${esc(it.src || '')}</div>`;
   el.innerHTML = `
     <div class="rd-top"><button class="icon-btn" data-act="rd-close" aria-label="Close">${icon('x', 18)}</button>
@@ -624,7 +685,7 @@ function readerCount(fill) {
 function linkAzkarHabit(set, dk, z) {
   const h = S.habits.find(x => x.azkar === set.id && scheduled(x, dk)); if (!h) return;
   if (h.type === 'check' && !val(h, dk)) setVal(h, dk, 1);
-  else if (h.type === 'count' && set.rounds) setVal(h, dk, z.r);
+  else if (h.type === 'count' && set.rounds) setVal(h, dk, z.r || 0);
 }
 
 /* ================= PROGRESS ================= */
@@ -732,6 +793,14 @@ function renderYou() {
       <label class="srow"><span class="lab">Name</span><input class="inp" style="max-width:52%;padding:8px 10px;font-size:14px;text-align:right;border:0;background:var(--bg)" data-set="name" value="${esc(S.name)}" placeholder="Your name"></label>
       <label class="srow"><span class="lab">Weight<small>Sets protein to 1.6 g per kg</small></span><input type="number" inputmode="decimal" data-set="weight" value="${S.set.weight}" min="30" max="200"> <span class="val">kg</span></label>
     </div>
+    <div class="group-t">Food goals</div>
+    <div class="group">
+      <label class="srow"><span class="lab">Calories<small>About 35 kcal per kg for an active day</small></span><input type="number" inputmode="numeric" data-set="nut-kcal" value="${S.set.nut.kcal}"> <span class="val">kcal</span></label>
+      <label class="srow"><span class="lab">Carbs</span><input type="number" inputmode="numeric" data-set="nut-c" value="${S.set.nut.c}"> <span class="val">g</span></label>
+      <label class="srow"><span class="lab">Fat</span><input type="number" inputmode="numeric" data-set="nut-f" value="${S.set.nut.f}"> <span class="val">g</span></label>
+      <div class="srow"><span class="lab">Protein and fibre<small>Set on their habits: ${(habit('protein') || {}).target || 100} g and ${(habit('fiber') || {}).target || 30} g</small></span></div>
+      ${S.foods.filter(f => !f.gone).length ? `<button class="srow" data-act="my-foods"><span class="lab">My foods<small>${S.foods.filter(f => !f.gone).length} added by you</small></span><span class="chev">${icon('chevR', 16)}</span></button>` : ''}
+    </div>
     <div class="group-t">Prayer times</div>
     <div class="group">
       <button class="srow" data-act="location"><span class="ic">${icon('pin', 17)}</span><span class="lab">Location<small>${esc(p.city || 'Custom')} · ${(+p.lat).toFixed(2)}, ${(+p.lng).toFixed(2)}</small></span><span class="chev">${icon('chevR', 16)}</span></button>
@@ -746,7 +815,7 @@ function renderYou() {
     </div>
     <div class="group-t">Appearance</div>
     <div class="group">
-      <div class="srow"><span class="lab">Theme</span><div class="seg" style="width:210px">${['auto', 'light', 'dark'].map(x => `<button data-act="theme" data-v="${x}" aria-pressed="${S.set.theme === x}">${x[0].toUpperCase() + x.slice(1)}</button>`).join('')}</div></div>
+      <div class="srow"><span class="lab">Theme</span><div class="seg" style="width:220px">${[['light', 'Light'], ['dim', 'Dim'], ['auto', 'Auto']].map(([x, l]) => `<button data-act="theme" data-v="${x}" aria-pressed="${S.set.theme === x}">${l}</button>`).join('')}</div></div>
       <label class="srow"><span class="lab">Show transliteration</span><input type="checkbox" switch data-set="tr" ${S.set.tr ? 'checked' : ''}></label>
       <label class="srow"><span class="lab">Show meaning</span><input type="checkbox" switch data-set="en" ${S.set.en ? 'checked' : ''}></label>
     </div>
@@ -795,10 +864,19 @@ function detailBody(id) {
   }
   if (h.azkar) hero += `<button class="btn ghost" style="margin-bottom:12px" data-act="read" data-id="${h.azkar}">${icon('dhikr', 18)} Open ${esc((S.azkar.find(s => s.id === h.azkar) || {}).name || 'dhikr')}</button>`;
   if (h.link) hero += `<button class="btn ghost" style="margin-bottom:12px" data-act="link" data-url="${esc(h.link)}">${icon('ext', 18)} Open link</button>`;
+  if (h.surah) hero += `<button class="btn ghost" style="margin-bottom:12px" data-act="surah" data-n="${h.surah}" data-id="${h.id}">${icon('book', 18)} Read Surah ${esc(SURAH[h.surah] ? SURAH[h.surah].n : h.surah)}</button>`;
+  if (h.food && h.type === 'count') { const fp = foodPart(h, dk); if (fp) hero += `<p class="help" style="text-align:center;margin:-4px 0 14px">${esc(fmtVal(h, Math.round(fp * 10) / 10))} from your food log${raw(h, dk) ? ` · ${esc(fmtVal(h, raw(h, dk)))} added by hand` : ''}</p>`; }
+  if (h.book) {
+    const pg = bookPage(h, dk);
+    hero += `<form class="book" data-form="book" data-id="${h.id}"><div class="fl">Current book</div>
+      <input class="inp" name="t" placeholder="Book title" value="${esc(h.book.t || '')}" maxlength="80">
+      <div class="inp-row" style="grid-template-columns:1fr 1fr auto;margin-top:8px"><div><label>I’m on page</label><input class="inp" name="page" type="number" inputmode="numeric" value="${pg ?? ''}"></div><div><label>Total pages</label><input class="inp" name="total" type="number" inputmode="numeric" value="${h.book.total || ''}"></div><div style="align-self:end"><button class="btn" style="width:84px">Save</button></div></div>
+      ${pg != null && h.book.total ? `<div class="track"><i style="width:${clamp(pg / h.book.total, 0, 1) * 100}%"></i></div><p class="help">${pg >= h.book.total ? 'Finished. Pick your next book.' : `${h.book.total - pg} pages to go`}</p>` : ''}</form>`;
+  }
   if (h.quran) {
     const L = quranLabel(quranPos(dk));
     hero += `<div class="pos-line"><span>${dk === todayKey() ? 'Today' : fmtDay(dk)}: <b>${L.text}</b></span><button class="link-btn" style="color:var(--ink)" data-act="quran-set">Change</button></div>
-      <button class="btn ghost" style="margin-bottom:12px" data-act="link" data-url="https://quran.com/juz/${L.para}">${icon('book', 18)} Open para ${L.para}</button>`;
+      <button class="btn ghost" style="margin-bottom:12px" data-act="hizb" data-id="${h.id}">${icon('book', 18)} Read para ${L.para}, ${L.half ? 'second' : 'first'} half</button>`;
   }
   const r = habitRate(h, 30);
   // month calendar
@@ -908,6 +986,369 @@ function openZAdd() {
   }, {title: 'Add dhikr'});
 }
 
+/* ================= ARABIC (Indo-Pak script) ================= */
+// Duas are stored in standard Arabic spelling. Shown the way South Asian books print them:
+// Allah with the standing alif (اللّٰه), plain alif with a vowel for أ/إ at the start of a word, and Farsi ya.
+function indo(s) {
+  return String(s || '')
+    .replace(/(لِ?ل)[َّ]{2}ه/g, '$1ّٰه')
+    .replace(/إ/g, 'ا')
+    .replace(/(^|[\s،,(]|[وفبل][َِ])أ(?=[َُ])/g, '$1ا')
+    .replace(/[يى]/g, 'ی');
+}
+const arText = it => it.q ? it.ar : indo(it.ar);
+
+/* ================= ADHKAR CHECKLIST ================= */
+function curSlot(dk) { return dk === todayKey() ? period(ptimes(dk), new Date()).slot : null; }
+function zOpen(set, dk, onDhikrTab) {
+  if (set.id in ui.zx) return ui.zx[set.id];
+  const pr = setProgress(set, dk), slot = curSlot(dk);
+  return !pr.complete && set.slot === slot && (onDhikrTab || slot !== 'day');
+}
+function zList(set, dk) {
+  const z = zState(dk, set.id), r = z.r || 0;
+  const rounds = set.rounds ? `<div class="zrounds">${Array.from({length: set.rounds}, (_, i) => `<button class="zround${i < r ? ' on' : ''}${i === r ? ' cur' : ''}" data-act="zr" data-id="${set.id}" data-i="${i}" aria-pressed="${i < r}">${icon('check', 12)}<span>${set.rounds === 5 ? PRAYERS[i][1] : `Round ${i + 1}`}</span></button>`).join('')}</div>` : '';
+  const full = set.rounds && r >= set.rounds;
+  const items = full ? `<div class="zi-done">All ${set.rounds} rounds done today. Alhamdulillah.</div>` : set.items.map((i0, j) => {
+    const it = zItem(i0), c = z.c[it.id] || 0, done = c >= it.n;
+    return `<div class="zi${done ? ' on' : ''}">
+      <button class="zck" data-act="zi-tick" data-id="${set.id}" data-j="${j}" aria-pressed="${done}" aria-label="${esc(it.t || 'Dhikr')} ${it.n} times">${icon('check', 15)}</button>
+      <button class="zi-t" data-act="zi-open" data-id="${set.id}" data-j="${j}"><b>${esc(it.t || 'Dhikr')}</b>${it.ar ? `<span class="zi-ar" lang="ar" dir="rtl">${esc(arText(it).replace(BISMILLAH + ' ', ''))}</span>` : ''}</button>
+      <span class="zn${it.n >= 10 ? ' big' : ''}">${!done && c ? `<small>${c}/</small>` : ''}${it.n}<small>×</small></span>
+    </div>`;
+  }).join('');
+  return `<div class="zlist">${rounds}${items}</div>`;
+}
+function zTick(setId, j, dk) {
+  const set = S.azkar.find(s => s.id === setId), it = set && set.items[j]; if (!it) return;
+  const z = clone(zState(dk, setId)); z.c = z.c || {};
+  const was = (z.c[it.id] || 0) >= it.n;
+  if (was) delete z.c[it.id]; else z.c[it.id] = it.n;
+  buzz();
+  const all = set.items.every(i => (z.c[i.id] || 0) >= i.n);
+  if (!was && all) {
+    if (set.rounds) { z.r = Math.min(set.rounds, (z.r || 0) + 1); z.c = {}; }
+    setZ(dk, setId, z); linkAzkarHabit(set, dk, z);
+    toast(set.rounds ? `${set.rounds === 5 ? PRAYERS[z.r - 1][1] : 'Round'} done · ${z.r} of ${set.rounds}` : `${set.name} complete. May Allah accept it.`);
+  } else {
+    setZ(dk, setId, z);
+    if (was && !set.rounds) { const h = S.habits.find(x => x.azkar === set.id && x.type === 'check'); if (h && raw(h, dk)) setVal(h, dk, 0); }
+  }
+  render();
+}
+function zRound(setId, i, dk) {
+  const set = S.azkar.find(s => s.id === setId); if (!set) return;
+  const z = clone(zState(dk, setId)), r = z.r || 0;
+  z.r = i < r ? i : i + 1; z.c = {};
+  setZ(dk, setId, z); buzz();
+  const h = S.habits.find(x => x.azkar === set.id && scheduled(x, dk));
+  if (h && h.type === 'count') setVal(h, dk, z.r); else if (h && h.type === 'check') setVal(h, dk, z.r >= set.rounds ? 1 : 0);
+  render();
+}
+
+/* ================= QURAN READER ================= */
+function quranShell(title, sub, body, doneBtn) {
+  closeQuran(true);
+  const el = document.createElement('div'); el.className = 'reader qreader'; el.id = 'qreader'; el.setAttribute('role', 'dialog');
+  el.style.setProperty('--qs', (ui.qsize || 30) + 'px');
+  el.innerHTML = `<div class="rd-top"><button class="icon-btn" data-act="q-close" aria-label="Close">${icon('x', 18)}</button>
+      <div class="tt"><b>${esc(title)}</b><span>${esc(sub)}</span></div>
+      <div class="qsz"><button class="mini-btn" data-act="q-size" data-d="-1" aria-label="Smaller text">A</button><button class="mini-btn" data-act="q-size" data-d="1" aria-label="Larger text" style="font-size:19px">A</button></div></div>
+    <div class="rd-body q-body">${body}</div>
+    ${doneBtn ? `<div class="rd-bot q-bot">${doneBtn}</div>` : ''}`;
+  document.body.append(el); document.body.style.overflow = 'hidden';
+  return el;
+}
+function closeQuran(silent) { const el = $('#qreader'); if (!el) return; el.remove(); document.body.style.overflow = ''; if (!silent) render(); }
+const ayat = arr => arr.map(a => `<span class="ay">${esc(a)}</span>`).join(' ');
+function openSurah(n, hid) {
+  const s = SURAH[n]; if (!s) return;
+  const h = hid ? habit(hid) : S.habits.find(x => x.surah === n && scheduled(x, todayKey()));
+  const done = h && val(h, todayKey());
+  quranShell(`Surah ${s.n}`, `${s.en} · ${s.a.length} ayat`,
+    `${n !== 9 ? `<p class="q-bism" lang="ar" dir="rtl">${esc(BISMILLAH)}</p>` : ''}<p class="q-text" lang="ar" dir="rtl">${ayat(s.a)}</p>`,
+    h ? `<button class="btn${done ? ' ghost' : ''}" data-act="q-done" data-id="${h.id}">${done ? icon('check', 18) + ' Already done today' : icon('check', 18) + ' Mark as read'}</button>` : '');
+}
+const hizbCache = {};
+async function openHizb(hid) {
+  const h = habit(hid) || S.habits.find(x => x.quran), dk = ui.date || todayKey(), pos = quranPos(dk), L = quranLabel(pos), hz = pos % 60 + 1;
+  const done = h && val(h, dk);
+  const el = quranShell(`Para ${L.para}, ${L.half ? 'second' : 'first'} half`, `Half para ${hz} of 60${L.khatam ? ` · khatam ${L.khatam + 1}` : ''}`,
+    `<div class="q-load">Loading…</div>`,
+    h ? `<button class="btn${done ? ' ghost' : ''}" data-act="q-done" data-id="${h.id}">${icon('check', 18)} ${done ? 'Already done today' : 'Mark as read'}</button>` : '');
+  let vs = hizbCache[hz];
+  if (!vs) { try { vs = JSON.parse(lsGet('mizan.hizb.' + hz)); } catch (e) {} }
+  if (!vs) {
+    try {
+      const r = await fetch(`https://api.quran.com/api/v4/quran/verses/indopak_nastaleeq?hizb_number=${hz}`);
+      vs = (await r.json()).verses.map(v => [v.verse_key, v.text_indopak_nastaleeq]);
+      lsSet('mizan.hizb.' + hz, JSON.stringify(vs));
+    } catch (e) { vs = null; }
+  }
+  if (!document.body.contains(el)) return;
+  const body = $('.q-body', el);
+  if (!vs) { body.innerHTML = `<div class="q-load">Couldn’t load the text. Check your connection.<br><br><button class="btn ghost" style="max-width:280px;margin:0 auto" data-act="link" data-url="https://quran.com/juz/${L.para}">${icon('ext', 18)} Open on Quran.com</button></div>`; return; }
+  hizbCache[hz] = vs;
+  let html = '', cur = null, buf = [];
+  const flush = () => { if (buf.length) html += `<p class="q-text" lang="ar" dir="rtl">${ayat(buf)}</p>`; buf = []; };
+  for (const [key, text] of vs) {
+    const [sn, an] = key.split(':').map(Number);
+    if (sn !== cur) {
+      flush(); cur = sn;
+      if (an === 1) html += `<div class="q-sh"><span>Surah ${esc(SURAH_NAMES[sn - 1] || sn)}</span></div>${sn !== 1 && sn !== 9 ? `<p class="q-bism" lang="ar" dir="rtl">${esc(BISMILLAH)}</p>` : ''}`;
+      else html += `<div class="q-sh small"><span>${esc(SURAH_NAMES[sn - 1] || sn)} · from ayah ${an}</span></div>`;
+    }
+    buf.push(text);
+  }
+  flush();
+  body.innerHTML = html;
+}
+
+/* ================= FOOD LOG ================= */
+const NUTK = ['kcal', 'p', 'c', 'f', 'fib'];
+const EMPTY_FS = {n: 0, kcal: 0, p: 0, c: 0, f: 0, fib: 0, w: 0, tags: {}};
+const fsCache = new WeakMap();
+function foodSum(dk) {
+  const fl = dayLog(dk).food; if (!fl || !fl.length) return EMPTY_FS;
+  if (fsCache.has(fl)) return fsCache.get(fl);
+  const s = {n: fl.length, kcal: 0, p: 0, c: 0, f: 0, fib: 0, w: 0, tags: {}};
+  for (const e of fl) {
+    NUTK.forEach((k, i) => { s[k] += e.n[i] || 0; });
+    s.w += e.w || 0;
+    String(e.tg || '').split(',').filter(Boolean).forEach(t => { (s.tags[t] = s.tags[t] || []).includes(e.nm) || s.tags[t].push(e.nm); });
+  }
+  fsCache.set(fl, s); return s;
+}
+function foodPart(h, dk) {
+  if (!h.food || h.type !== 'count') return 0;
+  const f = foodSum(dk);
+  return h.food === 'w' ? f.w : typeof f[h.food] === 'number' ? f[h.food] : 0;
+}
+function nutTargets() { return {kcal: S.set.nut.kcal, p: (habit('protein') || {}).target || 100, c: S.set.nut.c, f: S.set.nut.f, fib: (habit('fiber') || {}).target || 30}; }
+
+let FOOD_DB = null;
+const UNIT_ALIAS = {};
+for (const [u, ws] of Object.entries(UNIT_WORDS)) ws.split(',').forEach(w => { UNIT_ALIAS[w.trim()] = u; });
+const sing = w => w.length < 4 ? w : w.endsWith('ies') ? w.slice(0, -3) + 'y' : /(oes|ches|shes|sses)$/.test(w) ? w.slice(0, -2) : w.endsWith('s') && !w.endsWith('ss') ? w.slice(0, -1) : w;
+const fkey = str => str.toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter(Boolean).map(sing).join(' ');
+function foodDb() {
+  const custom = ((S && S.foods) || []).filter(f => !f.gone).map(f => ({k: 'c:' + f.id, n: f.n, a: [f.n], d: f.d, u: {[f.un || 'serving']: 100}, du: f.un || 'serving', tg: f.tg || '', custom: 1}));
+  const sig = custom.map(f => f.k + f.n).join('|');
+  if (FOOD_DB && FOOD_DB.sig === sig) return FOOD_DB;
+  const list = [...custom, ...FOODS_RAW.map(([k, n, a, d, u, tg]) => ({k, n, a: [n, ...a.split(',')], d, u: Object.fromEntries(u.split(',').map(x => { const [uu, g] = x.split(':'); return [uu, +g]; })), du: u.split(':')[0], tg}))];
+  const idx = new Map();
+  for (const f of list) for (const a of f.a) { const key = fkey(a); if (key && !idx.has(key)) idx.set(key, f); }
+  FOOD_DB = {sig, list, idx, byKey: new Map(list.map(f => [f.k, f]))};
+  return FOOD_DB;
+}
+const foodByKey = k => foodDb().byKey.get(k);
+function lev(a, b) {
+  if (Math.abs(a.length - b.length) > 2) return 9;
+  const d = Array.from({length: b.length + 1}, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    let prev = d[0]; d[0] = i;
+    for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, prev + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = t; }
+  }
+  return d[b.length];
+}
+function matchFood(name) {
+  const db = foodDb(), key = fkey(name); if (!key) return null;
+  if (db.idx.has(key)) return {food: db.idx.get(key), exact: true};
+  // longest known name inside what was typed, e.g. "homemade chicken biryani"
+  const toks = key.split(' '); let best = null;
+  for (let len = Math.min(toks.length, 4); len >= 1 && !best; len--)
+    for (let i = 0; i + len <= toks.length; i++) { const sub = toks.slice(i, i + len).join(' '); if (db.idx.has(sub)) { best = db.idx.get(sub); break; } }
+  if (best) return {food: best};
+  // small typos: "chapathi", "bannana"
+  let bd = 9;
+  for (const [k, f] of db.idx) {
+    if (k.length < 4) continue;
+    const d = lev(key, k), lim = k.length >= 7 ? 2 : 1;
+    if (d <= lim && d < bd) { bd = d; best = f; }
+  }
+  return best ? {food: best, fuzzy: true} : null;
+}
+const NUMW = {a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, couple: 2, few: 3, ek: 1, do: 2, teen: 3, char: 4};
+const SIZEW = {small: .7, chota: .7, medium: 1, regular: 1, large: 1.3, big: 1.3, bada: 1.3, huge: 1.6, mini: .5, full: 1};
+const isNum = t => /^\d*\.?\d+$/.test(t);
+function parseOne(src) {
+  let s = ' ' + src.toLowerCase().replace(/[½¼¾⅓⅔]/g, m => ' ' + {'½': .5, '¼': .25, '¾': .75, '⅓': .33, '⅔': .67}[m] + ' ') + ' ';
+  s = s.replace(/(\d+)\s+(\d+)\/(\d+)/g, (m, a, b, c) => String(+a + b / c)).replace(/(\d+)\/(\d+)/g, (m, a, b) => String(+(a / b).toFixed(3)));
+  s = s.replace(/(\d)\s*[x×*]\s/g, '$1 ').replace(/\s[x×*]\s*(\d)/g, ' $1').replace(/[^a-z0-9.\s']/g, ' ');
+  s = s.replace(/(\d*\.?\d+)([a-z]+)/g, (m, n, u) => UNIT_ALIAS[u] || u === 'k' ? `${n} ${u}` : m);
+  const toks = s.trim().split(/\s+/).filter(Boolean);
+  let q = null, unit = null, size = 1, i = 0, j = toks.length;
+  const eat = (t, lead) => {
+    if (isNum(t)) { q = (q == null ? 1 : q) * +t; return true; }
+    if (lead && t in NUMW && q == null) { q = NUMW[t]; return true; }
+    if (t === 'half' || t === 'aadha') { q = (q == null ? 1 : q) * .5; return true; }
+    if (t === 'quarter') { q = (q == null ? 1 : q) * .25; return true; }
+    if (t === 'dozen') { q = (q == null ? 1 : q) * 12; return true; }
+    if (UNIT_ALIAS[t] && !unit) { unit = UNIT_ALIAS[t]; return true; }
+    if (t in SIZEW) { size = SIZEW[t]; return true; }
+    return lead && (t === 'of' || t === 'some' || t === 'and');
+  };
+  while (i < j && eat(toks[i], true)) i++;
+  const rest = toks.slice(i, j).join(' ');
+  let m = matchFood(rest);
+  if (!(m && m.exact)) {   // trailing amount: "rice 2 cups", "milk 200 ml"
+    const save = {q, unit, size}; let jj = j;
+    while (jj > i + 1 && eat(toks[jj - 1], false)) jj--;
+    if (jj < j) { const m2 = matchFood(toks.slice(i, jj).join(' ')); if (m2 && (!m || m2.exact || !m.fuzzy)) { m = m2; j = jj; } else ({q, unit, size} = save); }
+  }
+  if (!m) return {ok: false, src: src.trim()};
+  return {ok: true, food: m.food, q: q == null ? 1 : q, unit, size, fuzzy: m.fuzzy, src: src.trim()};
+}
+function parseFood(text) {
+  return text.split(/[,;\n+&]|\band\b|\baur\b/i).map(x => x.trim()).filter(Boolean).flatMap(part => {
+    const r = parseOne(part);
+    if ((!r.ok || r.fuzzy) && /\swith\s/i.test(part)) { const sub = part.split(/\swith\s/i).map(parseOne); if (sub.every(x => x.ok)) return sub; }
+    return [r];
+  });
+}
+function gramsFor(food, unit, q) {
+  let u = unit || food.du, g = food.u[u];
+  if (g == null) {
+    if (food.custom || u === 'piece' || u === 'serving') { g = food.u[food.du]; u = food.du; }
+    else g = UNIT_G[u] ?? food.u[food.du];
+  }
+  return {u, g: g * q};
+}
+function mkEntry(food, q, unit, size = 1, keep) {
+  const {u, g} = gramsFor(food, unit, q), grams = g * (size || 1);
+  return {id: keep ? keep.id : uid(), k: food.k, nm: food.n, q, un: u, g: Math.round(grams),
+    n: food.d.map(x => Math.round(x * grams / 100 * 10) / 10), w: /(^|,)w(,|$)/.test(food.tg) ? Math.round(grams) : 0,
+    tg: String(food.tg || '').split(',').filter(t => t && t !== 'w').join(','), t: keep ? keep.t : Date.now(), m: keep ? keep.m : mealNow()};
+}
+function mealNow() { const h = new Date().getHours(); return h < 4 ? 'd' : h < 11 ? 'b' : h < 16 ? 'l' : h < 19 ? 's' : 'd'; }
+const MEALS = [['b', 'Breakfast'], ['l', 'Lunch'], ['s', 'Snacks'], ['d', 'Dinner']];
+const nfmt = x => { x = +x || 0; return x >= 100 ? String(Math.round(x)) : String(+x.toFixed(1)); };
+const unitWord = (u, q) => ({g: 'g', ml: 'ml', l: 'L', kg: 'kg', tbsp: 'tbsp', tsp: 'tsp', katori: q === 1 ? 'katori' : 'katoris', glass: q === 1 ? 'glass' : 'glasses', bunch: 'bunch'}[u] || (q === 1 ? u : u + 's'));
+const qtyText = e => `${nfmt(e.q)} ${unitWord(e.un, e.q)}${e.un !== 'g' && e.un !== 'ml' && !String(e.k).startsWith('c:') ? ` · ${e.g} ${e.w ? 'ml' : 'g'}` : ''}`;
+function foodAdd(items, dk = ui.date || todayKey()) {
+  items = items.filter(x => x.food); if (!items.length) return;
+  const before = score(dk), prevP = {};
+  S.habits.filter(h => h.food && scheduled(h, dk)).forEach(h => { prevP[h.id] = prog(h, dk); });
+  const l = S.log[dk] = {...(S.log[dk] || {})};
+  const added = items.map(x => mkEntry(x.food, x.q, x.unit, x.size));
+  l.food = [...(l.food || []), ...added]; l._u = Date.now();
+  Object.assign(ui.prev, prevP); ui.prevScore = before;
+  save(); afterChange(dk, before);
+  const sum = added.reduce((a, e) => ({p: a.p + e.n[1], kcal: a.kcal + e.n[0]}), {p: 0, kcal: 0});
+  const slips = [...new Set(added.flatMap(e => e.tg.split(',')).filter(t => t === 'junk' || t === 'sugar'))];
+  toast(`Added ${added.length === 1 ? added[0].nm : added.length + ' items'} · ${nfmt(sum.p)} g protein, ${Math.round(sum.kcal)} kcal${slips.length ? ` · counts as ${slips.join(' and ')}` : ''}`, () => {
+    const L = S.log[dk] = {...dayLog(dk)}; L.food = (L.food || []).filter(e => !added.some(a => a.id === e.id)); L._u = Date.now(); save(); render();
+  });
+  render();
+}
+function foodDel(dk, id) {
+  const l = S.log[dk] = {...dayLog(dk)}, i = (l.food || []).findIndex(e => e.id === id); if (i < 0) return;
+  const e = l.food[i]; l.food = l.food.filter(x => x.id !== id); l._u = Date.now(); save(); render();
+  toast(`Removed ${e.nm}`, () => { const L = S.log[dk] = {...dayLog(dk)}; const f = [...(L.food || [])]; f.splice(i, 0, e); L.food = f; L._u = Date.now(); save(); render(); });
+}
+function foodSubmit() {
+  const inp = $('#foodIn'); if (!inp || !inp.value.trim()) return;
+  const parts = parseFood(inp.value), ok = parts.filter(p => p.ok), bad = parts.filter(p => !p.ok);
+  foodAdd(ok);
+  const inp2 = $('#foodIn');
+  if (inp2) { inp2.value = bad.map(b => b.src).join(', '); foodPreview(); if (bad.length) inp2.focus(); }
+}
+function foodPreview() {
+  const inp = $('#foodIn'), box = $('#foodPrev'); if (!inp || !box) return;
+  const txt = inp.value.trim();
+  if (!txt) { box.innerHTML = ''; return; }
+  const parts = parseFood(txt);
+  box.innerHTML = parts.map((p, j) => {
+    if (!p.ok) return `<div class="fp bad"><span><b>“${esc(p.src)}”</b> isn’t in the list yet</span><button type="button" class="act" data-act="food-custom" data-name="${esc(p.src)}">Add it</button></div>`;
+    const e = mkEntry(p.food, p.q, p.unit, p.size);
+    return `<div class="fp"><span><b>${esc(e.nm)}</b> · ${esc(qtyText(e))}</span><span class="fpn">${nfmt(e.n[1])} g protein · ${Math.round(e.n[0])} kcal</span></div>`;
+  }).join('') + (parts.some(p => p.ok) ? `<p class="fp-hint">Press Enter to add${parts.length > 1 ? ' all' : ''}</p>` : '');
+}
+function recentFoods(dk) {
+  const seen = new Set(), out = [];
+  for (let i = 0; i < 21 && out.length < 8; i++) {
+    const k = addDays(dk, -i), fl = (dayLog(k).food || []).slice().reverse();
+    for (const e of fl) { const key = `${e.k}|${e.q}|${e.un}`; if (seen.has(key) || !foodByKey(e.k)) continue; seen.add(key); out.push(e); if (out.length >= 8) break; }
+  }
+  return out;
+}
+function renderFood(dk) {
+  const f = foodSum(dk), T = nutTargets(), fl = dayLog(dk).food || [];
+  const mac = [['p', 'Protein', T.p], ['c', 'Carbs', T.c], ['f', 'Fat', T.f], ['fib', 'Fibre', T.fib]];
+  const rec = recentFoods(dk).filter(e => !fl.some(x => x.k === e.k && x.q === e.q && x.un === e.un)).slice(0, 6);
+  const meals = MEALS.map(([m, name]) => {
+    const es = fl.filter(e => (e.m || 'l') === m); if (!es.length) return '';
+    return `<div class="meal"><div class="meal-h"><span>${name}</span><span>${Math.round(es.reduce((a, e) => a + e.n[0], 0))} kcal</span></div>${es.map(e => `
+      <div class="fe"><button class="fe-t" data-act="food-edit" data-id="${e.id}"><b>${esc(e.nm)}</b><span>${esc(qtyText(e))}</span></button>
+      <span class="fe-n">${e.w && !e.n[0] ? `<b>${e.w}<small> ml</small></b><span>water</span>` : `<b>${nfmt(e.n[1])}<small> g P</small></b><span>${Math.round(e.n[0])} kcal</span>`}</span>
+      <button class="tx" data-act="food-del" data-id="${e.id}" aria-label="Remove ${esc(e.nm)}">${icon('x', 15)}</button></div>`).join('')}</div>`;
+  }).join('');
+  return `<section class="card food" id="foodCard">
+    <div class="card-h"><h2>Food</h2><span class="sub">${fl.length ? `${fl.length} item${fl.length > 1 ? 's' : ''} today` : 'Type what you ate, I’ll do the maths'}</span></div>
+    <div class="food-top">
+      <div class="kcal c-work">${ring(96, 8, f.kcal / T.kcal)}<div class="val"><b class="num">${Math.round(f.kcal)}</b><span>of ${T.kcal}<br>kcal</span></div></div>
+      <div class="macros">${mac.map(([k, l, t]) => `<div class="mac m-${k}"><div class="ml"><span>${l}</span><b class="num">${nfmt(f[k])}<small> / ${t} g</small></b></div><span class="bar"><i style="width:${clamp(f[k] / t, 0, 1) * 100}%"></i></span></div>`).join('')}</div>
+    </div>
+    <form class="food-add" data-form="food"><input id="foodIn" placeholder="3 eggs, 2 roti, 1 katori dal…" autocomplete="off" autocapitalize="off" enterkeyhint="done" aria-label="What did you eat or drink?"><button type="submit" aria-label="Add food">${icon('plus', 18)}</button></form>
+    <div class="food-prev" id="foodPrev" aria-live="polite"></div>
+    ${rec.length ? `<div class="chips food-rec">${rec.map(e => `<button class="chip" data-act="food-again" data-k="${esc(e.k)}" data-q="${e.q}" data-u="${esc(e.un)}">${icon('plus', 13)} ${esc(e.nm)} <em>${nfmt(e.q)} ${esc(unitWord(e.un, e.q))}</em></button>`).join('')}</div>` : ''}
+    ${meals ? `<div class="meals">${meals}</div>` : `<p class="help" style="margin-top:12px">Try “2 glasses water”, “1 cucumber”, “200 g chicken” or “half plate biryani”. Protein, fibre and water fill in their habits; fruit and veg tick themselves; junk and sugar count as a slip.</p>`}
+  </section>`;
+}
+function openFoodEdit(dk, id) {
+  const e = (dayLog(dk).food || []).find(x => x.id === id); if (!e) return;
+  ui.fe = {dk, id, q: e.q, un: e.un, m: e.m || 'l'};
+  const food = foodByKey(e.k);
+  openSheet(() => {
+    const units = food ? [...new Set([...Object.keys(food.u), ...(food.custom ? [] : ['g'])])] : [e.un];
+    return `<div class="field"><label for="feQ">How much</label><div style="display:flex;gap:8px"><input id="feQ" class="inp" type="number" inputmode="decimal" step="any" data-fe="q" value="${ui.fe.q}" style="width:110px"><div class="chips" style="align-items:center">${units.map(u => `<button class="chip" data-act="fe-unit" data-v="${u}" aria-pressed="${ui.fe.un === u}">${esc(unitWord(u, 2))}</button>`).join('')}</div></div></div>
+      <div class="field"><span class="fl">Meal</span><div class="seg">${MEALS.map(([m, n]) => `<button type="button" data-act="fe-meal" data-v="${m}" aria-pressed="${ui.fe.m === m}">${n}</button>`).join('')}</div></div>
+      <div class="fe-sum" id="feSum"></div>
+      <form data-form="fedit"><button class="btn">Save</button></form>
+      <button class="btn danger" style="margin-top:8px" data-act="fe-del">Remove</button>`;
+  }, {title: e.nm});
+  foodEditPreview();
+}
+function foodEditEntry() {
+  const fe = ui.fe, e = (dayLog(fe.dk).food || []).find(x => x.id === fe.id); if (!e) return null;
+  const q = parseFloat(($('#feQ') || {}).value); fe.q = q > 0 ? q : e.q;
+  const food = foodByKey(e.k);
+  if (food) return {...mkEntry(food, fe.q, fe.un, 1, e), m: fe.m};
+  const r = fe.q / e.q; return {...e, q: fe.q, g: Math.round(e.g * r), n: e.n.map(x => Math.round(x * r * 10) / 10), w: Math.round((e.w || 0) * r), m: fe.m};
+}
+function foodEditPreview() {
+  const n = foodEditEntry(), box = $('#feSum'); if (!n || !box) return;
+  box.innerHTML = [['Calories', Math.round(n.n[0]), 'kcal'], ['Protein', nfmt(n.n[1]), 'g'], ['Carbs', nfmt(n.n[2]), 'g'], ['Fat', nfmt(n.n[3]), 'g'], ['Fibre', nfmt(n.n[4]), 'g']].map(([l, v, u]) => `<div><b>${v}<small> ${u}</small></b><span>${l}</span></div>`).join('');
+}
+function foodEditSave() {
+  const n = foodEditEntry(); if (!n) return;
+  const dk = ui.fe.dk, l = S.log[dk] = {...dayLog(dk)};
+  l.food = l.food.map(x => x.id === n.id ? n : x); l._u = Date.now(); save(); closeSheet();
+}
+function openFoodCustom(name) {
+  ui.fc = {n: name.replace(/^[\d.\s]+/, '').trim(), tg: []};
+  openSheet(() => `<p class="help" style="margin:-4px 0 14px">Add it once and Mizan will know it next time. Check the packet, or use your best estimate for one serving.</p>
+    <form data-form="fcustom">
+    <div class="field"><label>Name</label><input class="inp" name="n" value="${esc(ui.fc.n)}" maxlength="50" required></div>
+    <div class="field"><label>One serving is a…</label><input class="inp" name="un" value="serving" maxlength="20" placeholder="serving, piece, bowl"></div>
+    <div class="field"><span class="fl">Per serving</span><div class="inp-row" style="grid-template-columns:repeat(5,1fr)">${[['kcal', 'kcal'], ['p', 'Protein g'], ['c', 'Carbs g'], ['f', 'Fat g'], ['fib', 'Fibre g']].map(([k, l]) => `<div><label>${l}</label><input class="inp" name="${k}" type="number" inputmode="decimal" step="any" min="0" placeholder="0"></div>`).join('')}</div></div>
+    <div class="field"><span class="fl">It counts as</span><div class="chips">${[['fruit', 'Fruit'], ['veg', 'Vegetable'], ['junk', 'Junk'], ['sugar', 'Added sugar'], ['w', 'Water']].map(([v, l]) => `<button type="button" class="chip" data-act="fc-tag" data-v="${v}" aria-pressed="false">${l}</button>`).join('')}</div></div>
+    <button class="btn">Save and add 1 serving</button></form>`, {title: 'New food'});
+}
+function foodCustomSave() {
+  const f = $('[data-form="fcustom"]'), fd = new FormData(f), n = String(fd.get('n') || '').trim();
+  if (!n) { toast('Give it a name'); return; }
+  const food = {id: uid(), n, un: (String(fd.get('un') || 'serving').trim().toLowerCase() || 'serving').replace(/\s+/g, ' '), d: ['kcal', 'p', 'c', 'f', 'fib'].map(k => Math.max(0, parseFloat(fd.get(k)) || 0)), tg: ui.fc.tg.join(','), u: Date.now()};
+  S.foods.push(food); save(); closeSheet();
+  const inp = $('#foodIn');
+  if (inp) { inp.value = parseFood(inp.value).filter(p => !p.ok && fkey(p.src.replace(/^[\d.\s]+/, '')) !== fkey(n)).map(p => p.src).join(', '); }
+  foodAdd([{food: foodByKey('c:' + food.id), q: 1}]);
+  foodPreview();
+}
+function openMyFoods() {
+  openSheet(() => `${S.foods.filter(f => !f.gone).map(f => `<div class="zedit-row"><div class="zn"><b>${esc(f.n)}</b><span>Per ${esc(f.un)}: ${Math.round(f.d[0])} kcal · ${nfmt(f.d[1])} g protein · ${nfmt(f.d[4])} g fibre</span></div><button class="mini-btn danger" data-act="mf-del" data-id="${f.id}" aria-label="Remove">${icon('trash', 16)}</button></div>`).join('') || '<p class="help">No foods of your own yet.</p>'}`, {title: 'My foods'});
+}
+
 /* ================= RENDER ================= */
 function render() {
   if (!S) return;
@@ -925,11 +1366,11 @@ function go(tab) {
   scrollTo(0, 0); render();
 }
 function applyTheme() {
-  const t = S ? S.set.theme : 'auto';
+  const t = S ? S.set.theme : 'light';
   if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t;
   lsSet('mizan.theme', t === 'auto' ? null : t);
-  const dark = t === 'dark' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  $('#themeColor').content = dark ? '#0D0E10' : '#F4F2EC';
+  const dim = t === 'dim' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  $('#themeColor').content = dim ? '#25282D' : '#F7F5F0';
 }
 
 /* ================= ACTIONS ================= */
@@ -937,6 +1378,11 @@ function tick(id, dk) {
   const h = habit(id); if (!h) return;
   dk = dk || ui.date || todayKey();
   const v = val(h, dk);
+  if (h.food && (h.type === 'check' || h.type === 'avoid') && !raw(h, dk) && v) {
+    const from = foodSum(dk).tags[h.food].join(', ');
+    toast(h.type === 'avoid' ? `Counted from your food log: ${from}. Remove it there to undo.` : `Done from your food log: ${from}`);
+    return;
+  }
   if (h.type === 'check') setVal(h, dk, v ? 0 : 1);
   else if (h.type === 'avoid') {
     setVal(h, dk, v ? 0 : 1);
@@ -967,6 +1413,14 @@ document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   e.preventDefault();
   if (f.dataset.form === 'task') addTask($('#taskIn').value);
+  if (f.dataset.form === 'food') foodSubmit();
+  if (f.dataset.form === 'book') {
+    const h = habit(f.dataset.id), fd = new FormData(f), dkk = ui.date || todayKey(), pg = parseInt(fd.get('page'), 10);
+    h.book = {t: String(fd.get('t') || '').trim(), total: parseInt(fd.get('total'), 10) || 0, page: isNaN(pg) ? 0 : pg - (+val(h, dkk) || 0), from: dkk};
+    h.u = Date.now(); save(); render(); toast('Book saved');
+  }
+  if (f.dataset.form === 'fcustom') foodCustomSave();
+  if (f.dataset.form === 'fedit') foodEditSave();
   if (f.dataset.form === 'exact') {
     const h = habit(f.dataset.id), x = parseFloat($('#exact', f).value);
     if (h && !isNaN(x)) { setVal(h, ui.date || todayKey(), Math.max(0, x)); render(); }
@@ -975,13 +1429,22 @@ document.addEventListener('submit', e => {
 
 document.addEventListener('input', e => {
   const t = e.target;
+  if (t.id === 'foodIn') { foodPreview(); return; }
+  if (t.dataset.fe != null) { foodEditPreview(); return; }
   if (t.dataset.f && ui.ed) ui.ed[t.dataset.f] = t.type === 'number' ? (t.value === '' ? '' : +t.value) : t.value;
   if (t.dataset.af && ui.ae) ui.ae[t.dataset.af] = t.value;
   if (t.dataset.zn && ui.zn) ui.zn[t.dataset.zn] = t.type === 'number' ? +t.value : t.value;
   if (t.dataset.zf) { const set = S.azkar.find(s => s.id === ui.zs); if (set) { set[t.dataset.zf] = t.value; set.u = Date.now(); save(); } }
 });
+document.addEventListener('focusin', e => { if (e.target.dataset && e.target.dataset.amt) setTimeout(() => e.target.select(), 0); });
 document.addEventListener('change', e => {
-  const t = e.target, k = t.dataset.set; if (!k) return;
+  const t = e.target;
+  if (t.dataset.amt) {
+    const h = habit(t.dataset.amt), x = parseAmt(h, t.value);
+    if (x == null) { toast(`Type a number, like ${h.unit === 'ml' ? '1.5 (litres) or 500 ml' : h.unit === 'min' ? '45 or 1h 20m' : h.unit === 'steps' ? '6500 or 6.5k' : '12'}`); t.value = amtStr(h, val(h, ui.date || todayKey())); return; }
+    setVal(h, ui.date || todayKey(), x); render(); return;
+  }
+  const k = t.dataset.set; if (!k) return;
   const p = S.set.prayer;
   if (k === 'name') S.name = t.value.trim();
   else if (k === 'weight') {
@@ -995,6 +1458,7 @@ document.addEventListener('change', e => {
   else if (k === 'goal') S.set.goal = +t.value;
   else if (k === 'dayStart') S.set.dayStart = t.value === 'auto' ? 'auto' : +t.value;
   else if (k === 'tr' || k === 'en') S.set[k] = t.checked;
+  else if (k.startsWith('nut-')) { const x = +t.value; if (!(x > 0)) return; S.set.nut[k.slice(4)] = x; }
   ptCache.clear(); save(); render();
 });
 
@@ -1013,6 +1477,27 @@ document.addEventListener('click', e => {
     case 'prayer': togglePrayer(+b.dataset.i); break;
     case 'detail': openDetail(id); break;
     case 'link': window.open(b.dataset.url, '_blank', 'noopener'); break;
+    case 'surah': openSurah(+b.dataset.n, id); break;
+    case 'hizb': openHizb(id); break;
+    case 'q-close': closeQuran(); break;
+    case 'q-size': ui.qsize = clamp((ui.qsize || 30) + +b.dataset.d * 3, 21, 45); lsSet('mizan.qsize', ui.qsize); $('#qreader')?.style.setProperty('--qs', ui.qsize + 'px'); break;
+    case 'q-done': { const h = habit(id); if (h && !val(h, todayKey())) setVal(h, todayKey(), 1); closeQuran(); toast(`${h ? h.name : 'Reading'} done. May Allah accept it.`); break; }
+    case 'zx': { const set = S.azkar.find(s => s.id === id); ui.zx[id] = !zOpen(set, dk, ui.tab === 'dhikr'); render(); break; }
+    case 'zi-tick': zTick(id, +b.dataset.j, todayKey()); break;
+    case 'zi-open': openReader(id, +b.dataset.j); break;
+    case 'zr': zRound(id, +b.dataset.i, todayKey()); break;
+    case 'food-focus': { if (ui.tab !== 'today') go('today'); const c = $('#foodCard'); c?.scrollIntoView({behavior: 'smooth', block: 'center'}); setTimeout(() => $('#foodIn')?.focus({preventScroll: true}), 350); break; }
+    case 'food-again': foodAdd([{food: foodByKey(b.dataset.k), q: +b.dataset.q, unit: b.dataset.u}]); break;
+    case 'food-pick': { const inp = $('#foodIn'); const parts = inp.value.split(','); parts[+b.dataset.j] = ' ' + b.dataset.v; inp.value = parts.join(',').trim(); foodPreview(); inp.focus(); break; }
+    case 'food-del': foodDel(dk, id); break;
+    case 'food-edit': openFoodEdit(dk, id); break;
+    case 'food-custom': openFoodCustom(b.dataset.name || ''); break;
+    case 'fc-tag': { ui.fc.tg = ui.fc.tg.includes(b.dataset.v) ? ui.fc.tg.filter(x => x !== b.dataset.v) : [...ui.fc.tg, b.dataset.v]; b.setAttribute('aria-pressed', ui.fc.tg.includes(b.dataset.v)); break; }
+    case 'fe-unit': ui.fe.un = b.dataset.v; $$('[data-act="fe-unit"]').forEach(x => x.setAttribute('aria-pressed', x === b)); foodEditPreview(); break;
+    case 'fe-del': foodDel(ui.fe.dk, ui.fe.id); closeSheet(); break;
+    case 'fe-meal': ui.fe.m = b.dataset.v; $$('[data-act="fe-meal"]').forEach(x => x.setAttribute('aria-pressed', x === b)); break;
+    case 'my-foods': openMyFoods(); break;
+    case 'mf-del': { const f = S.foods.find(x => x.id === id); f.gone = 1; f.u = Date.now(); save(); paintSheet(); toast(`${f.n} removed from your foods`); break; }
     case 'area': ui.area = ui.area === id ? null : id; render(); break;
     case 'view': S.set.view = b.dataset.v; save(); render(); break;
     case 'slot': { const sec = b.closest('.slot'); ui.open[id] = sec.classList.contains('closed'); sec.classList.toggle('closed'); b.setAttribute('aria-expanded', ui.open[id]); break; }
@@ -1111,6 +1596,8 @@ document.addEventListener('click', e => {
 });
 
 document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && e.target.dataset && e.target.dataset.amt) { e.preventDefault(); e.target.blur(); return; }
+  if (e.key === 'Escape' && $('#qreader')) { closeQuran(); return; }
   if (e.target.matches('input, textarea, select')) return;
   if (ui.rd && !ui.sheets.length) {
     if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); if (!ui.rd.done) readerCount(); }
@@ -1214,7 +1701,7 @@ function merge(a, b) {
   const log = {...a.log};
   for (const [k, d] of Object.entries(b.log)) if (!log[k] || (d._u || 0) > (log[k]._u || 0)) log[k] = d;
   return {...newer, habits: byId(a.habits, b.habits, newer.habits), areas: byId(a.areas, b.areas, newer.areas), azkar: byId(a.azkar, b.azkar, newer.azkar),
-    tasks: byId(a.tasks, b.tasks, newer.tasks), log, del, start: a.start < b.start ? a.start : b.start, updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0)};
+    tasks: byId(a.tasks, b.tasks, newer.tasks), foods: byId(a.foods, b.foods, newer.foods), log, del, start: a.start < b.start ? a.start : b.start, updatedAt: Math.max(a.updatedAt || 0, b.updatedAt || 0)};
 }
 async function syncNow() {
   if (!sync.key) return;
@@ -1298,13 +1785,14 @@ function heartbeat() {
 function start() {
   applyTheme();
   ui.tasbihN = lsGet('mizan.tasbihN') != null ? +lsGet('mizan.tasbihN') : 33;
+  ui.qsize = +lsGet('mizan.qsize') || 30;
   $('.tabbar').hidden = false;
   go('today'); lastKey = todayKey();
   setInterval(heartbeat, 30000);
 }
 document.querySelector('.rail-brand').innerHTML = MARK('var(--ink)');
 $$('.tab').forEach(t => { t.innerHTML = icon(t.dataset.tab, 24) + `<span>${t.dataset.label}</span>`; t.dataset.act = 'tab'; });
-matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', applyTheme);
+matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => S && applyTheme());
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && S) { heartbeat(); if (sync.key) syncNow(); } });
 window.addEventListener('online', () => { if (sync.key) syncNow(); });
 if (S) { start(); if (sync.key) syncNow(); } else { $('.tabbar').hidden = true; showOnboarding(); }

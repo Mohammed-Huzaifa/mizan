@@ -5,6 +5,8 @@ Static files, no build step, no paid services.
 
 - `index.html`, `app.css`, `app.js`: the app
 - `data.js`: default areas, habits, habit ideas and the azkar library (with sources)
+- `foods.js`: food database for the food log (per 100 g, IFCT 2017 + USDA), Indian dishes first
+- `quran.js`: Ya-Sin, Al-Kahf, Al-Waqi‘ah, Al-Mulk, As-Sajdah and the azkar ayat in the Indo-Pak script (Quran.com text). The half-para reader loads other parts from the Quran.com API
 - `prayer.js`: prayer times calculated on the device (Karachi method and Hanafi Asr by default)
 - `api/sync.js`: optional sync between phone and laptop (Vercel function + Upstash Redis free tier)
 - `sw.js`, `manifest.webmanifest`, icons: offline support and home-screen install

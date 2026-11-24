@@ -20,33 +20,32 @@ const SLOTS = [
   {id: 'sleep', name: 'Before sleep', hint: 'After Isha'},
 ];
 
-const PROTEIN_FOODS = 'Egg:6, Chicken 100 g:27, Fish 100 g:22, Mutton 100 g:25, Paneer 100 g:18, Dal katori:9, Chana or rajma katori:11, Curd cup:8, Milk glass:8, Soya chunks 50 g:26, Whey scoop:24, Peanuts handful:7';
-
 // type: check | count (reach a target) | limit (stay under) | avoid (stay clean) | prayer
 const DEFAULT_HABITS = [
   {id: 'salah', name: 'Five daily prayers', area: 'deen', type: 'prayer', slot: 'day'},
   {id: 'tahajjud', name: 'Tahajjud', area: 'deen', type: 'check', slot: 'night'},
-  {id: 'yaseen', name: 'Surah Yaseen', area: 'deen', type: 'check', slot: 'morning', link: 'https://quran.com/36'},
+  {id: 'yaseen', name: 'Surah Yaseen', area: 'deen', type: 'check', slot: 'morning', surah: 36},
   {id: 'am-azkar', name: 'Morning azkar', area: 'deen', type: 'check', slot: 'morning', azkar: 'morning'},
   {id: 'quran', name: 'Quran, half para', area: 'deen', type: 'check', slot: 'day', quran: true},
   {id: 'salah-azkar', name: 'Azkar after salah', area: 'deen', type: 'count', target: 5, unit: 'prayers', step: 1, slot: 'day', azkar: 'salah'},
   {id: 'daily-dhikr', name: 'Daily dhikr', area: 'deen', type: 'check', slot: 'day', azkar: 'daily'},
-  {id: 'kahf', name: 'Surah Al-Kahf', area: 'deen', type: 'check', slot: 'day', days: [5], link: 'https://quran.com/18'},
+  {id: 'kahf', name: 'Surah Al-Kahf', area: 'deen', type: 'check', slot: 'day', days: [5], surah: 18},
   {id: 'pm-azkar', name: 'Evening azkar', area: 'deen', type: 'check', slot: 'evening', azkar: 'evening'},
-  {id: 'waqiah', name: 'Surah Al-Waqi‘ah', area: 'deen', type: 'check', slot: 'evening', note: 'After Maghrib', link: 'https://quran.com/56'},
-  {id: 'mulk', name: 'Surah Al-Mulk', area: 'deen', type: 'check', slot: 'sleep', note: 'Tabarak', link: 'https://quran.com/67'},
+  {id: 'waqiah', name: 'Surah Al-Waqi‘ah', area: 'deen', type: 'check', slot: 'evening', note: 'After Maghrib', surah: 56},
+  {id: 'mulk', name: 'Surah Al-Mulk', area: 'deen', type: 'check', slot: 'sleep', note: 'Tabarak', surah: 67},
   {id: 'sleep-azkar', name: 'Sleep azkar', area: 'deen', type: 'check', slot: 'sleep', azkar: 'sleep'},
 
-  {id: 'water', name: 'Water', area: 'body', type: 'count', target: 4000, unit: 'ml', step: 250, quick: '250, 500, 750, 1000', slot: 'day'},
-  {id: 'protein', name: 'Protein', area: 'body', type: 'count', target: 100, unit: 'g', step: 10, quick: PROTEIN_FOODS, slot: 'day', note: '1.6 g per kg of body weight'},
+  {id: 'water', name: 'Water', area: 'body', type: 'count', target: 4000, unit: 'ml', step: 250, quick: '250, 500, 750, 1000', slot: 'day', food: 'w'},
+  {id: 'protein', name: 'Protein', area: 'body', type: 'count', target: 100, unit: 'g', step: 5, slot: 'day', food: 'p', note: '1.6 g per kg of body weight'},
+  {id: 'fiber', name: 'Fibre', area: 'body', type: 'count', target: 30, unit: 'g', step: 5, slot: 'day', food: 'fib', note: 'Vegetables, fruit, dal, whole grains'},
   {id: 'steps', name: 'Steps', area: 'body', type: 'count', target: 10000, unit: 'steps', step: 1000, quick: '1000, 2000, 5000', slot: 'day', note: 'Walk or run'},
-  {id: 'fruit', name: 'A fruit', area: 'body', type: 'check', slot: 'day'},
-  {id: 'veg', name: 'A vegetable', area: 'body', type: 'check', slot: 'day'},
-  {id: 'junk', name: 'No junk food', area: 'body', type: 'avoid', slot: 'day'},
-  {id: 'sugar', name: 'No added sugar', area: 'body', type: 'avoid', slot: 'day'},
+  {id: 'fruit', name: 'A fruit', area: 'body', type: 'check', slot: 'day', food: 'fruit'},
+  {id: 'veg', name: 'A vegetable', area: 'body', type: 'check', slot: 'day', food: 'veg'},
+  {id: 'junk', name: 'No junk food', area: 'body', type: 'avoid', slot: 'day', food: 'junk'},
+  {id: 'sugar', name: 'No added sugar', area: 'body', type: 'avoid', slot: 'day', food: 'sugar'},
 
   {id: 'puzzle', name: 'Chess or sudoku puzzle', area: 'mind', type: 'check', slot: 'day', link: 'https://lichess.org/training/daily'},
-  {id: 'read', name: 'Read', area: 'mind', type: 'count', target: 20, unit: 'pages', step: 5, quick: '5, 10, 20', slot: 'day'},
+  {id: 'read', name: 'Read', area: 'mind', type: 'count', target: 20, unit: 'pages', step: 5, quick: '5, 10, 20', slot: 'day', book: {t: '', total: 0, page: 0, from: ''}},
   {id: 'scroll', name: 'Scrolling', area: 'mind', type: 'limit', target: 60, unit: 'min', step: 15, quick: '15, 30, 45, 60, 90', slot: 'sleep', note: 'Check Screen Time before bed'},
   {id: 'gratitude', name: 'Write 3 things I’m grateful for', area: 'mind', type: 'check', slot: 'sleep'},
 
@@ -62,6 +61,7 @@ const DEFAULT_HABITS = [
 const IDEAS = [
   {name: '12 sunnah rak‘ahs', area: 'deen', type: 'count', target: 12, unit: 'rak‘ahs', step: 2, slot: 'day', note: 'A house in Jannah (Muslim 728)'},
   {name: 'Witr', area: 'deen', type: 'check', slot: 'sleep'},
+  {name: 'Surah As-Sajdah', area: 'deen', type: 'check', slot: 'sleep', surah: 32, note: 'With Al-Mulk before sleep (At-Tirmidhi 2892)'},
   {name: 'Duha prayer', area: 'deen', type: 'check', slot: 'morning'},
   {name: 'Fast Monday & Thursday', area: 'deen', type: 'check', slot: 'day', days: [1, 4]},
   {name: 'Memorise one ayah', area: 'deen', type: 'check', slot: 'morning'},
@@ -228,10 +228,10 @@ const Z = {
     src: 'Abu Dawud 5045'},
   mulk: {t: 'Surah Al-Mulk',
     ar: 'تَبَارَكَ الَّذِي بِيَدِهِ الْمُلْكُ وَهُوَ عَلَىٰ كُلِّ شَيْءٍ قَدِيرٌ',
-    tr: 'Tabarakal-ladhi bi-yadihil-mulku wa huwa ‘ala kulli shay’in qadir… Open the full surah from the link.',
+    tr: 'Tabarakal-ladhi bi-yadihil-mulku wa huwa ‘ala kulli shay’in qadir…',
     en: 'Blessed is He in whose hand is the dominion, and He is able to do all things.',
     why: 'Intercedes for its reciter until he is forgiven.',
-    link: 'https://quran.com/67', src: 'At-Tirmidhi 2891'},
+    surah: 67, src: 'At-Tirmidhi 2891'},
   waking: {t: 'On waking up',
     ar: 'الْحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ',
     tr: 'Alhamdu lillahil-ladhi ahyana ba‘da ma amatana wa ilayhin-nushur.',
@@ -256,6 +256,12 @@ const Z = {
     why: 'A treasure from the treasures of Jannah.',
     src: 'Al-Bukhari 6384'},
 };
+
+// Quranic text comes from quran.js in the Indo-Pak script.
+Object.assign(Z.kursi, {ar: AYAH['2:255'], q: 1});
+[['ikhlas', 112], ['falaq', 113], ['nas', 114]].forEach(([k, n]) => Object.assign(Z[k], {ar: BISMILLAH + ' ' + SURAH[n].a.join(' '), q: 1}));
+Object.assign(Z.baqarah, {ar: AYAH['2:285'] + ' ' + AYAH['2:286'], q: 1});
+Object.assign(Z.mulk, {ar: SURAH[67].a[0], q: 1});
 
 const zi = (k, n, extra) => ({...Z[k], k, n, ...extra});
 
