@@ -61,7 +61,7 @@ function dur(ms) {
 function freshState(o = {}) {
   const t = keyOf(new Date()), now = Date.now();
   return {
-    v: 2, name: o.name || '', start: t, foods: [],
+    v: 3, name: o.name || '', start: t, foods: [],
     areas: clone(DEFAULT_AREAS).map(a => ({...a, u: now})),
     habits: DEFAULT_HABITS.map(h => ({...h, created: t, u: now})),
     azkar: DEFAULT_AZKAR.map(s => slimSet(s, now)),
@@ -98,6 +98,12 @@ function migrate(s) {
     }
     if (s.set.theme === 'auto') s.set.theme = 'light';
     s.v = 2;
+  }
+  if (s.v < 3) {   // v3: duas for health, debt, rizq, spouse, parents and akhirah
+    const now = Date.now();
+    if (!s.azkar.some(x => x.id === 'life') && !s.del.life) { const i = s.azkar.findIndex(x => x.id === 'daily'); s.azkar.splice(i < 0 ? s.azkar.length : i, 0, slimSet(DEFAULT_AZKAR.find(x => x.id === 'life'), now)); }
+    if (!s.habits.some(h => h.id === 'life-duas') && !s.del['life-duas']) { const i = s.habits.findIndex(h => h.id === 'daily-dhikr'); s.habits.splice(i < 0 ? s.habits.length : i + 1, 0, {...DEFAULT_HABITS.find(h => h.id === 'life-duas'), created: keyOf(new Date()), u: now}); }
+    s.v = 3;
   }
   return s;
 }
@@ -643,11 +649,11 @@ function paintReader() {
       <p>${set.rounds && z.r < set.rounds ? 'See you after the next salah.' : 'May Allah accept it from you.'}</p>
       <div class="btn-row" style="max-width:360px;margin:0 auto"><button class="btn ghost" data-act="rd-again">${set.rounds ? 'Start again' : 'Read again'}</button><button class="btn" data-act="rd-close">Done</button></div></div>`
     : !it ? `<div class="rd-done"><p>This set is empty. Tap Edit to add dhikr.</p></div>`
-    : `<div class="rd-title">${esc(it.t || '')}${it.n > 1 ? ` · ${it.n}×` : ''}</div>
+    : `<div class="rd-title">${esc(it.t || '')}${it.n > 1 ? ` · ${it.n}×` : ''}${it.f ? `<span class="zi-for" style="margin-left:8px">${esc(it.f)}</span>` : ''}</div>
       ${it.ar ? `<p class="ar${it.ar.length < 60 ? ' lg' : ''}" lang="ar" dir="rtl">${esc(arText(it))}</p>` : ''}
       ${S.set.tr && it.tr ? `<p class="tr">${esc(it.tr)}</p>` : ''}
       ${S.set.en && it.en ? `<p class="en">${esc(it.en)}</p>` : ''}
-      ${it.why ? `<p class="why">${esc(it.why)}</p>` : ''}
+      ${it.why ? `<p class="why"><b>Why we read it</b>${esc(it.why)}</p>` : ''}
       ${it.surah ? `<p><button class="chip" data-act="surah" data-n="${it.surah}">${icon('book', 14)} Read the full surah</button></p>` : it.link ? `<p><button class="chip" data-act="link" data-url="${esc(it.link)}">${icon('book', 14)} Open full surah</button></p>` : ''}
       <div class="src">${esc(it.src || '')}</div>`;
   el.innerHTML = `
@@ -1013,7 +1019,7 @@ function zList(set, dk) {
     const it = zItem(i0), c = z.c[it.id] || 0, done = c >= it.n;
     return `<div class="zi${done ? ' on' : ''}">
       <button class="zck" data-act="zi-tick" data-id="${set.id}" data-j="${j}" aria-pressed="${done}" aria-label="${esc(it.t || 'Dhikr')} ${it.n} times">${icon('check', 15)}</button>
-      <button class="zi-t" data-act="zi-open" data-id="${set.id}" data-j="${j}"><b>${esc(it.t || 'Dhikr')}</b>${it.ar ? `<span class="zi-ar" lang="ar" dir="rtl">${esc(arText(it).replace(BISMILLAH + ' ', ''))}</span>` : ''}</button>
+      <button class="zi-t" data-act="zi-open" data-id="${set.id}" data-j="${j}">${it.f ? `<span class="zi-for">${esc(it.f)}</span>` : ''}<b>${esc(it.t || 'Dhikr')}</b>${it.ar ? `<span class="zi-ar" lang="ar" dir="rtl">${esc(arText(it).replace(BISMILLAH + ' ', ''))}</span>` : ''}${it.why ? `<span class="zi-why">${esc(it.why)}</span>` : ''}</button>
       <span class="zn${it.n >= 10 ? ' big' : ''}">${!done && c ? `<small>${c}/</small>` : ''}${it.n}<small>×</small></span>
     </div>`;
   }).join('');

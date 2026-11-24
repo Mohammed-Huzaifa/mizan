@@ -521,6 +521,13 @@ textarea.inp.ar-in { font-family: var(--arabic); direction: rtl; font-size: 20px
 .zi-ar { font-family: var(--arabic); font-size: 19px; line-height: 1.9; color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: rtl; text-align: right; }
 .zi.on .zi-t b { color: var(--ink3); text-decoration: line-through; text-decoration-color: var(--ink3); }
 .zi.on .zi-ar { opacity: .5; }
+.zi { align-items: flex-start; padding: 12px 0; }
+.zi .zck { margin-top: 2px; }
+.zi .zn { margin-top: 2px; }
+.zi-for { display: inline-block; justify-self: start; font-size: 11.5px; font-weight: 700; letter-spacing: .03em; color: var(--deen); background: color-mix(in srgb, var(--deen) 11%, transparent); padding: 3px 8px; border-radius: 7px; margin-bottom: 4px; vertical-align: 2px; }
+.zi-why { font-size: 13.5px; line-height: 1.45; color: var(--ink2); margin-top: 2px; }
+.zi.on .zi-why { display: none; }
+.why b { display: block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--deen); margin-bottom: 4px; }
 .zn { font: 600 18px var(--display); color: var(--deen); font-variant-numeric: tabular-nums; min-width: 46px; text-align: right; flex: none; }
 .zn small { font-size: 13px; color: var(--ink3); font-weight: 600; }
 .zi.on .zn { color: var(--ink3); }
