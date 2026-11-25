@@ -1,5 +1,5 @@
 // Keeps Mizan working offline. Network-first so updates show up on next open.
-const V = 'mizan-v3';
+const V = 'mizan-v4';
 const FILES = ['./', 'index.html', 'app.css', 'app.js', 'data.js', 'quran.js', 'foods.js', 'prayer.js', 'manifest.webmanifest', 'icon.svg', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'fonts/funnel-display.woff2', 'fonts/amiri-arabic.woff2', 'fonts/indopak.woff2', 'fonts/geist.woff2'];
 
 self.addEventListener('install', e => {

@@ -585,7 +585,7 @@ function renderTasks(dk) {
   const ts = tasksFor(dk), open = ts.filter(t => !t.done).length;
   return `<section class="card">
     <div class="card-h"><h2>Tasks</h2><span class="sub">${ts.length ? `${ts.length - open} of ${ts.length} done` : 'One-off things for today'}</span></div>
-    <form class="task-add" data-form="task"><input id="taskIn" placeholder="Add a task…" enterkeyhint="done" autocomplete="off" maxlength="140"><button type="submit" aria-label="Add task">${icon('plus', 18)}</button></form>
+    <form class="task-add" data-form="task"><input name="t" placeholder="Add a task…" enterkeyhint="done" autocomplete="off" maxlength="140"><button type="submit" aria-label="Add task">${icon('plus', 18)}</button></form>
     <div class="tasks-list">${ts.map(t => `<div class="task${t.done ? ' done' : ''}">
       <button class="tb" data-act="task" data-id="${t.id}" aria-label="Mark ${esc(t.t)} ${t.done ? 'not done' : 'done'}">${icon('check', 14)}</button>
       <span class="tt">${esc(t.t)}${!t.done && t.d < dk ? `<span class="tf">From ${fmtDay(t.d, {weekday: 'short', day: 'numeric', month: 'short'})}</span>` : ''}</span>
@@ -1418,17 +1418,19 @@ function togglePrayer(i) {
   if (bits(v) === 5 && !(bits(v ^ (1 << i)) === 5)) toast('All five prayers today. Alhamdulillah.');
   render();
 }
-function addTask(text) {
-  text = text.trim(); if (!text) return;
+// The Tasks card renders twice (laptop column and phone column), so always use the form that was submitted.
+function addTask(f) {
+  const text = f.t.value.trim(); if (!text) return;
+  const inPhone = !!f.closest('.hide-d');
   S.tasks.push({id: uid(), t: text, d: ui.date || todayKey(), done: null, u: Date.now()});
   save(); render(); buzz();
-  setTimeout(() => $('#taskIn')?.focus(), 0);
+  setTimeout(() => $(`${inPhone ? '.hide-d' : '.hide-m'} .task-add input`)?.focus(), 0);
 }
 
 document.addEventListener('submit', e => {
   const f = e.target.closest('[data-form]'); if (!f) return;
   e.preventDefault();
-  if (f.dataset.form === 'task') addTask($('#taskIn').value);
+  if (f.dataset.form === 'task') addTask(f);
   if (f.dataset.form === 'food') foodSubmit();
   if (f.dataset.form === 'book') {
     const h = habit(f.dataset.id), fd = new FormData(f), dkk = ui.date || todayKey(), pg = parseInt(fd.get('page'), 10);
