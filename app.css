@@ -589,6 +589,21 @@ textarea.inp.ar-in { font-family: var(--arabic); direction: rtl; font-size: 20px
 .fe-sum b { display: block; font: 600 18px/1.1 var(--display); font-variant-numeric: tabular-nums; }
 .fe-sum b small { font-size: 11px; color: var(--ink3); }
 .fe-sum span { font-size: 11.5px; color: var(--ink2); font-weight: 600; }
+.plan { margin-top: 16px; background: var(--bg); border-radius: 16px; padding: 14px 14px 12px; }
+.plan-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+.plan-h b { font: 600 17px var(--display); }
+.plan-h span { font-size: 12.5px; color: var(--ink3); }
+.pl { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.pl:last-of-type { border-bottom: 0; }
+.pl-t { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.pl-t b { font-weight: 600; font-size: 15.5px; }
+.pl-t span { font-size: 13px; color: var(--ink2); }
+.pl-n { text-align: right; display: grid; font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.pl-n b { font: 600 15.5px var(--display); color: var(--ink); }
+.pl-n b small { font-size: 11.5px; color: var(--ink3); font-weight: 500; }
+.pl-add { width: 34px; height: 34px; border-radius: 10px; background: var(--card); color: var(--body); display: grid; place-items: center; flex: none; border: 1px solid var(--line); }
+.pl-add svg { width: 16px; height: 16px; }
+.plan-f { margin: 8px 0 0; font-size: 13px; color: var(--ink2); line-height: 1.5; }
 .book { background: var(--bg); border-radius: 16px; padding: 14px; margin-bottom: 14px; }
 .book .inp { background: var(--card); }
 

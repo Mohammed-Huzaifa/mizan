@@ -82,8 +82,10 @@ const FOODS_RAW = [
   ['ragi', 'Ragi mudde', 'ragi ball,ragi mudde,ragi', [110, 2.7, 24, 0.5, 3], 'piece:150', ''],
   ['chilla', 'Besan chilla', 'chilla,cheela,besan cheela,moong chilla,pesarattu', [190, 9, 22, 7, 4], 'piece:80', ''],
   ['dhokla', 'Dhokla', 'khaman,khaman dhokla', [160, 6, 25, 4, 2], 'piece:35', ''],
-  ['oats', 'Oats (dry)', 'oats,rolled oats,quaker oats', [389, 16.9, 66, 6.9, 10.6], 'serving:40,cup:80,tbsp:8', ''],
-  ['oatmeal', 'Oatmeal with milk', 'oatmeal,porridge,oats porridge,overnight oats,oats with milk,milk oats', [100, 4.3, 14, 3, 1.6], 'bowl:250', ''],
+  // Huzaifa's own oats (from the pack label, per 100 g). One serving = his 55 ml measuring cup, about 25 g.
+  ['yogabar', 'Yoga Bar protein oats', 'oats,oat,my oats,yoga bar oats,yogabar oats,yoga bar,yogabar,protein oats,high protein oats,chocolate oats,dark chocolate oats', [364, 26, 57.3, 5.9, 11.1], 'serving:25,cup:25,scoop:25,ml:0.45', ''],
+  ['oats', 'Plain oats (dry)', 'rolled oats,quaker oats,plain oats,instant oats,saffola oats', [389, 16.9, 66, 6.9, 10.6], 'serving:40,cup:80,tbsp:8', ''],
+  ['oatmeal', 'Oatmeal with milk', 'oatmeal,porridge,oats porridge,overnight oats', [100, 4.3, 14, 3, 1.6], 'bowl:250', ''],
   ['dalia', 'Dalia', 'daliya,broken wheat,lapsi', [110, 3.5, 20, 1.6, 3.5], 'bowl:250', ''],
   ['muesli', 'Muesli', 'granola', [370, 10, 66, 6, 7], 'bowl:50,serving:50', ''],
   ['cornflakes', 'Cornflakes', 'corn flakes,cereal', [357, 7.5, 84, 0.4, 3], 'bowl:30', ''],

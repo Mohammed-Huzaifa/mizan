@@ -1213,12 +1213,13 @@ function parseOne(src) {
     if (jj < j) { const m2 = matchFood(toks.slice(i, jj).join(' ')); if (m2 && (!m || m2.exact || !m.fuzzy)) { m = m2; j = jj; } else ({q, unit, size} = save); }
   }
   if (!m) return {ok: false, src: src.trim()};
-  return {ok: true, food: m.food, q: q == null ? 1 : q, unit, size, fuzzy: m.fuzzy, src: src.trim()};
+  return {ok: true, food: m.food, q: q == null ? 1 : q, unit, size, fuzzy: m.fuzzy, exact: m.exact, src: src.trim()};
 }
 function parseFood(text) {
   return text.split(/[,;\n+&]|\band\b|\baur\b/i).map(x => x.trim()).filter(Boolean).flatMap(part => {
     const r = parseOne(part);
-    if ((!r.ok || r.fuzzy) && /\swith\s/i.test(part)) { const sub = part.split(/\swith\s/i).map(parseOne); if (sub.every(x => x.ok)) return sub; }
+    // "oats with milk" → oats + milk
+    if ((!r.ok || !r.exact) && /\swith\s/i.test(part)) { const sub = part.split(/\swith\s/i).map(parseOne); if (sub.every(x => x.ok)) return sub; }
     return [r];
   });
 }
@@ -1288,6 +1289,74 @@ function recentFoods(dk) {
   }
   return out;
 }
+// "To reach 100%": a short list of everyday foods that closes today's remaining calories, protein, fibre and carbs.
+// [food key, unit, servings per step, most servings, group (one food per group), flags: m = my own food, r = only if eaten recently]
+const PLAN_FOODS = [
+  ['yogabar', 'serving', 1, 2, 'oats', 'm'], ['egg', 'piece', 2, 4, 'egg'], ['chicken', 'serving', 1, 2, 'meat'],
+  ['dal', 'katori', 1, 2, 'dal'], ['chole', 'katori', 1, 1, 'pulse'], ['rajma', 'katori', 1, 1, 'pulse'], ['sprouts', 'katori', 1, 1, 'pulse'],
+  ['curd', 'katori', 1, 2, 'dairy'], ['milk', 'glass', 1, 2, 'milk'], ['paneer', 'serving', 1, 1, 'vprot'], ['soya', 'serving', 1, 1, 'vprot'],
+  ['roti', 'piece', 2, 6, 'roti'], ['rice', 'katori', 1, 2, 'rice'], ['sabzi', 'katori', 1, 2, 'sabzi'], ['salad', 'bowl', 1, 1, 'salad'],
+  ['cucumber', 'piece', 1, 1, 'salad'], ['guava', 'piece', 1, 1, 'fruit1'], ['apple', 'piece', 1, 1, 'fruit1'], ['banana', 'piece', 1, 2, 'fruit2'],
+  ['papaya', 'bowl', 1, 1, 'fruit2'], ['almonds', 'handful', 1, 1, 'nuts'], ['peanuts', 'handful', 1, 1, 'nuts'], ['chana', 'handful', 1, 1, 'nuts'],
+  ['whey', 'scoop', 1, 1, 'whey', 'r'],
+];
+function foodPlan(dk) {
+  const T = nutTargets(), f = foodSum(dk), I = {kcal: 0, p: 1, c: 2, f: 3, fib: 4};
+  const g = {kcal: T.kcal - f.kcal, p: T.p - f.p, c: T.c - f.c, f: T.f - f.f, fib: T.fib - f.fib};
+  const usual = new Set();
+  for (let i = 0; i < 21; i++) (dayLog(addDays(dk, -i)).food || []).forEach(e => usual.add(e.k));
+  const eatenToday = new Set((dayLog(dk).food || []).map(e => e.k));
+  const cands = PLAN_FOODS.map(([k, u, step, max, grp, fl = '']) => {
+    const food = foodByKey(k); if (!food || (fl.includes('r') && !usual.has(k))) return null;
+    const e = mkEntry(food, step, u);
+    return {k, u, step, max, grp, food, n: e.n, tg: e.tg, cnt: 0, like: fl.includes('m') ? 1.35 : usual.has(k) ? 1.2 : 1};
+  }).filter(Boolean);
+  const used = new Map();   // group → chosen food
+  const pick = [];
+  const take = c => { c.cnt += c.step; NUTK.forEach((k, i) => { g[k] -= c.n[i]; }); used.set(c.grp, c.k); if (!pick.includes(c)) pick.push(c); };
+  const W = [['kcal', 1.6], ['p', 2.5], ['fib', 1.5], ['c', .8], ['f', .7]];
+  const score = c => {
+    if (c.cnt + c.step > c.max || (used.has(c.grp) && used.get(c.grp) !== c.k)) return -1;
+    let s = 0;
+    for (const [k, w] of W) if (g[k] > 0) s += w * Math.min(c.n[I[k]], g[k]) / T[k];
+    s -= Math.max(0, c.n[0] - Math.max(g.kcal, 0)) / T.kcal * 4;
+    s -= Math.max(0, c.n[3] - Math.max(g.f, 0)) / T.f * 1.5;
+    s -= Math.max(0, c.n[2] - Math.max(g.c, 0)) / T.c;
+    s -= Math.max(0, c.n[1] - Math.max(g.p, 0)) / T.p * 1.5;
+    return s * Math.pow(.75, c.cnt / c.step) * c.like * (eatenToday.has(c.k) ? .7 : 1);
+  };
+  // A fruit and a vegetable first, if those habits aren't done yet today.
+  for (const tag of ['fruit', 'veg']) {
+    const h = S.habits.find(x => x.food === tag && !x.archived);
+    if (!h || !scheduled(h, dk) || (f.tags[tag] || []).length) continue;
+    const best = cands.filter(c => c.tg.split(',').includes(tag)).sort((a, b) => score(b) - score(a))[0];
+    if (best) take(best);
+  }
+  for (let i = 0; i < 18; i++) {
+    if (g.p <= T.p * .03 && g.fib <= T.fib * .05 && g.kcal <= T.kcal * .06) break;
+    let best = null, bs = .02;
+    for (const c of cands) { const sc = score(c); if (sc > bs) { bs = sc; best = c; } }
+    if (!best) break;
+    take(best);
+  }
+  const items = pick.map(c => ({k: c.k, u: c.u, q: c.cnt, e: mkEntry(c.food, c.cnt, c.u)})).sort((a, b) => b.e.n[1] - a.e.n[1]);
+  return {items, T, after: {kcal: T.kcal - g.kcal, p: T.p - g.p, c: T.c - g.c, f: T.f - g.f, fib: T.fib - g.fib},
+    met: f.p >= T.p * .97 && f.fib >= T.fib * .95 && f.kcal >= T.kcal * .94};
+}
+function renderPlan(dk) {
+  if (dk !== todayKey()) return '';
+  const P = foodPlan(dk), f = foodSum(dk), pct = (k) => Math.round(P.after[k] / P.T[k] * 100);
+  if (P.met || !P.items.length) return `<div class="plan"><div class="plan-h"><b>Today’s needs</b></div><p class="help">Protein, fibre and calories are covered for today. Alhamdulillah.</p></div>`;
+  return `<div class="plan">
+    <div class="plan-h"><b>${f.n ? 'Still to eat for 100%' : 'Eat this today for 100%'}</b><span>Tap + to log it</span></div>
+    ${P.items.map(x => `<div class="pl">
+      <span class="pl-t"><b>${esc(x.e.nm)}</b><span>${esc(qtyText(x.e))}</span></span>
+      <span class="pl-n"><b>${nfmt(x.e.n[1])}<small> g P</small></b><span>${nfmt(x.e.n[4])} g fibre · ${Math.round(x.e.n[0])} kcal</span></span>
+      <button class="pl-add" data-act="food-again" data-k="${esc(x.k)}" data-q="${x.q}" data-u="${esc(x.u)}" aria-label="Log ${esc(x.e.nm)}">${icon('plus', 16)}</button>
+    </div>`).join('')}
+    <p class="plan-f">With these: protein ${pct('p')}%, fibre ${pct('fib')}%, carbs ${pct('c')}%, fat ${pct('f')}%, ${Math.round(P.after.kcal)} of ${P.T.kcal} kcal.</p>
+  </div>`;
+}
 function renderFood(dk) {
   const f = foodSum(dk), T = nutTargets(), fl = dayLog(dk).food || [];
   const mac = [['p', 'Protein', T.p], ['c', 'Carbs', T.c], ['f', 'Fat', T.f], ['fib', 'Fibre', T.fib]];
@@ -1308,7 +1377,8 @@ function renderFood(dk) {
     <form class="food-add" data-form="food"><input id="foodIn" placeholder="3 eggs, 2 roti, 1 katori dal…" autocomplete="off" autocapitalize="off" enterkeyhint="done" aria-label="What did you eat or drink?"><button type="submit" aria-label="Add food">${icon('plus', 18)}</button></form>
     <div class="food-prev" id="foodPrev" aria-live="polite"></div>
     ${rec.length ? `<div class="chips food-rec">${rec.map(e => `<button class="chip" data-act="food-again" data-k="${esc(e.k)}" data-q="${e.q}" data-u="${esc(e.un)}">${icon('plus', 13)} ${esc(e.nm)} <em>${nfmt(e.q)} ${esc(unitWord(e.un, e.q))}</em></button>`).join('')}</div>` : ''}
-    ${meals ? `<div class="meals">${meals}</div>` : `<p class="help" style="margin-top:12px">Try “2 glasses water”, “1 cucumber”, “200 g chicken” or “half plate biryani”. Protein, fibre and water fill in their habits; fruit and veg tick themselves; junk and sugar count as a slip.</p>`}
+    ${meals ? `<div class="meals">${meals}</div>` : `<p class="help" style="margin-top:12px">Try “2 glasses water”, “1 cucumber”, “200 g chicken” or “1 oats with milk”. Protein, fibre and water fill in their habits; fruit and veg tick themselves; junk and sugar count as a slip.</p>`}
+    ${renderPlan(dk)}
   </section>`;
 }
 function openFoodEdit(dk, id) {
