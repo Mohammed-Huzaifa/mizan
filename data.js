@@ -463,3 +463,23 @@ const HADITH = [
   ['Allah loves that when one of you does a deed, he does it with excellence.', 'Al-Bayhaqi'],
   ['Your body has a right over you.', 'Al-Bukhari 1975'],
 ];
+
+// Monthly groceries for one person, under ₹3,000. Prices are approximate local market rates (late 2026).
+// Together this gives about 2,200 kcal, 105 g protein and 50 g fibre a day. Salt, spices and tea are extra.
+// [group, item, how much, rough price ₹, what it's for]
+const GROCERY = [
+  ['Protein', 'Eggs', '60 (2 trays)', 400, '2 a day'],
+  ['Protein', 'Soya chunks', '1.5 kg', 285, '50 g a day, the cheapest protein'],
+  ['Protein', 'Toor dal', '1.5 kg', 230, '1 katori dal a day'],
+  ['Protein', 'Kabuli chana', '1 kg', 140, 'chole or boiled chana, 3 to 4 times a week'],
+  ['Protein', 'Peanuts', '500 g', 90, 'a small handful a day'],
+  ['Protein', 'Milk (toned)', '7.5 L', 360, '250 ml a day, with your oats'],
+  ['Grains', 'Yoga Bar protein oats', '750 g', 400, 'one 55 ml cup a day (a 1 kg pack lasts about 40 days)'],
+  ['Grains', 'Atta', '5 kg', 260, '5 to 6 roti a day'],
+  ['Grains', 'Rice', '2 kg', 120, '1 katori most days'],
+  ['Veg & fruit', 'Onion and tomato', '2.5 kg', 100, 'for cooking'],
+  ['Veg & fruit', 'Seasonal vegetables', '4 kg', 180, 'beans, cabbage, bhindi, carrot, cucumber: 1 katori sabzi a day'],
+  ['Veg & fruit', 'Bananas', '2 dozen', 120, 'almost 1 a day'],
+  ['Veg & fruit', 'Guava or seasonal fruit', '1 kg', 80, 'fibre and vitamin C'],
+  ['Cooking', 'Oil', '1 L', 160, 'about 2 tbsp a day'],
+];

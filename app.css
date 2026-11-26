@@ -623,3 +623,18 @@ textarea.inp.ar-in { font-family: var(--arabic); direction: rtl; font-size: 20px
 @media (min-width: 980px) { .reader .rd-top, .reader .rd-body, .reader .rd-bot { max-width: 820px; } }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+
+/* ---------- groceries ---------- */
+.gr-open { display: flex; align-items: center; gap: 12px; width: 100%; margin-top: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); text-align: left; color: var(--ink2); }
+.gr-open span { flex: 1; font-weight: 600; color: var(--ink); }
+.gr-open small { display: block; font-weight: 400; font-size: 13px; color: var(--ink2); }
+.gr-open svg { flex: none; }
+.gr { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--line); }
+.gr-t { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.gr-t b { font-weight: 600; font-size: 15.5px; }
+.gr-t b em { font-style: normal; font-weight: 500; color: var(--ink2); margin-left: 4px; }
+.gr-t > span { font-size: 13px; color: var(--ink2); }
+.gr-p { font: 600 15.5px var(--display); font-variant-numeric: tabular-nums; }
+.gr-tot { display: flex; justify-content: space-between; align-items: baseline; padding: 14px 2px 4px; }
+.gr-tot span { font-weight: 600; }
+.gr-tot b { font: 600 22px var(--display); }

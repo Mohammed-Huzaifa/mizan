@@ -20,6 +20,7 @@ const P = {
   you: '<path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>', minus: '<path d="M5 12h14"/>',
   check: '<path d="M5 12.5l4.2 4.2L19 7"/>', x: '<path d="M6 6l12 12M18 6L6 18"/>',
+  bag: '<path d="M5 8h14l-1 12H6L5 8z"/><path d="M9 8V6a3 3 0 016 0v2"/>',
   chevR: '<path d="M9 5l7 7-7 7"/>', chevL: '<path d="M15 5l-7 7 7 7"/>', chevD: '<path d="M5 9l7 7 7-7"/>',
   up: '<path d="M12 19V5M6 11l6-6 6 6"/>', down: '<path d="M12 5v14M6 13l6 6 6-6"/>',
   ext: '<path d="M7 17L17 7M9 7h8v8"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="M13.5 6.5l4 4"/>',
@@ -1379,6 +1380,7 @@ function renderFood(dk) {
     ${rec.length ? `<div class="chips food-rec">${rec.map(e => `<button class="chip" data-act="food-again" data-k="${esc(e.k)}" data-q="${e.q}" data-u="${esc(e.un)}">${icon('plus', 13)} ${esc(e.nm)} <em>${nfmt(e.q)} ${esc(unitWord(e.un, e.q))}</em></button>`).join('')}</div>` : ''}
     ${meals ? `<div class="meals">${meals}</div>` : `<p class="help" style="margin-top:12px">Try “2 glasses water”, “1 cucumber”, “200 g chicken” or “1 oats with milk”. Protein, fibre and water fill in their habits; fruit and veg tick themselves; junk and sugar count as a slip.</p>`}
     ${renderPlan(dk)}
+    <button class="gr-open" data-act="grocery">${icon('bag', 17)}<span>Monthly groceries<small>Everything for a month, under ₹3,000</small></span>${icon('chevR', 16)}</button>
   </section>`;
 }
 function openFoodEdit(dk, id) {
@@ -1430,6 +1432,14 @@ function foodCustomSave() {
   if (inp) { inp.value = parseFood(inp.value).filter(p => !p.ok && fkey(p.src.replace(/^[\d.\s]+/, '')) !== fkey(n)).map(p => p.src).join(', '); }
   foodAdd([{food: foodByKey('c:' + food.id), q: 1}]);
   foodPreview();
+}
+function openGrocery() {
+  const total = GROCERY.reduce((a, g) => a + g[3], 0), groups = [...new Set(GROCERY.map(g => g[0]))];
+  openSheet(() => `<p class="help" style="margin:0 0 6px">Enough for one person for a month. Together it gives about 2,200 kcal, 105 g protein and 50 g fibre a day.</p>
+    ${groups.map(gr => `<div class="meal-h"><span>${gr}</span></div>${GROCERY.filter(g => g[0] === gr).map(([, n, q, p, why]) => `
+      <div class="gr"><span class="gr-t"><b>${esc(n)} <em>${esc(q)}</em></b><span>${esc(why)}</span></span><span class="gr-p">₹${p}</span></div>`).join('')}`).join('')}
+    <div class="gr-tot"><span>Total</span><b>₹${total.toLocaleString('en-IN')}</b></div>
+    <p class="help">Prices are rough local rates and change by shop and season. Salt, spices and tea are not included.</p>`, {title: 'Monthly groceries'});
 }
 function openMyFoods() {
   openSheet(() => `${S.foods.filter(f => !f.gone).map(f => `<div class="zedit-row"><div class="zn"><b>${esc(f.n)}</b><span>Per ${esc(f.un)}: ${Math.round(f.d[0])} kcal · ${nfmt(f.d[1])} g protein · ${nfmt(f.d[4])} g fibre</span></div><button class="mini-btn danger" data-act="mf-del" data-id="${f.id}" aria-label="Remove">${icon('trash', 16)}</button></div>`).join('') || '<p class="help">No foods of your own yet.</p>'}`, {title: 'My foods'});
@@ -1584,6 +1594,7 @@ document.addEventListener('click', e => {
     case 'fe-del': foodDel(ui.fe.dk, ui.fe.id); closeSheet(); break;
     case 'fe-meal': ui.fe.m = b.dataset.v; $$('[data-act="fe-meal"]').forEach(x => x.setAttribute('aria-pressed', x === b)); break;
     case 'my-foods': openMyFoods(); break;
+    case 'grocery': openGrocery(); break;
     case 'mf-del': { const f = S.foods.find(x => x.id === id); f.gone = 1; f.u = Date.now(); save(); paintSheet(); toast(`${f.n} removed from your foods`); break; }
     case 'area': ui.area = ui.area === id ? null : id; render(); break;
     case 'view': S.set.view = b.dataset.v; save(); render(); break;
