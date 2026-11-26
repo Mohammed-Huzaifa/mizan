@@ -1291,11 +1291,13 @@ function recentFoods(dk) {
   return out;
 }
 // "To reach 100%": a short list of everyday foods that closes today's remaining calories, protein, fibre and carbs.
-// [food key, unit, servings per step, most servings, group (one food per group), flags: m = my own food, r = only if eaten recently]
+// [food key, unit, servings per step, most servings, group (one food per group), flags: m = what I cook or eat daily, r = only if eaten recently]
+// Huzaifa eats chicken, eggs, beef and fish (no soya); he cooks chicken and eggs, and home or mess gives rice, roti and dal.
 const PLAN_FOODS = [
-  ['yogabar', 'serving', 1, 2, 'oats', 'm'], ['egg', 'piece', 2, 4, 'egg'], ['chicken', 'serving', 1, 2, 'meat'],
-  ['dal', 'katori', 1, 2, 'dal'], ['chole', 'katori', 1, 1, 'pulse'], ['rajma', 'katori', 1, 1, 'pulse'], ['sprouts', 'katori', 1, 1, 'pulse'],
-  ['curd', 'katori', 1, 2, 'dairy'], ['milk', 'glass', 1, 2, 'milk'], ['paneer', 'serving', 1, 1, 'vprot'], ['soya', 'serving', 1, 1, 'vprot'],
+  ['yogabar', 'serving', 1, 2, 'oats', 'm'], ['egg', 'piece', 2, 4, 'egg', 'm'], ['chicken', 'serving', 1, 2, 'meat', 'm'],
+  ['fishcurry', 'katori', 1, 1, 'meat', 'r'], ['beefcurry', 'katori', 1, 1, 'meat', 'r'],
+  ['dal', 'katori', 1, 2, 'dal'], ['chole', 'katori', 1, 1, 'pulse'], ['rajma', 'katori', 1, 1, 'pulse'],
+  ['curd', 'katori', 1, 2, 'dairy'], ['milk', 'glass', 1, 2, 'milk'],
   ['roti', 'piece', 2, 6, 'roti'], ['rice', 'katori', 1, 2, 'rice'], ['sabzi', 'katori', 1, 2, 'sabzi'], ['salad', 'bowl', 1, 1, 'salad'],
   ['cucumber', 'piece', 1, 1, 'salad'], ['guava', 'piece', 1, 1, 'fruit1'], ['apple', 'piece', 1, 1, 'fruit1'], ['banana', 'piece', 1, 2, 'fruit2'],
   ['papaya', 'bowl', 1, 1, 'fruit2'], ['almonds', 'handful', 1, 1, 'nuts'], ['peanuts', 'handful', 1, 1, 'nuts'], ['chana', 'handful', 1, 1, 'nuts'],
@@ -1380,7 +1382,7 @@ function renderFood(dk) {
     ${rec.length ? `<div class="chips food-rec">${rec.map(e => `<button class="chip" data-act="food-again" data-k="${esc(e.k)}" data-q="${e.q}" data-u="${esc(e.un)}">${icon('plus', 13)} ${esc(e.nm)} <em>${nfmt(e.q)} ${esc(unitWord(e.un, e.q))}</em></button>`).join('')}</div>` : ''}
     ${meals ? `<div class="meals">${meals}</div>` : `<p class="help" style="margin-top:12px">Try “2 glasses water”, “1 cucumber”, “200 g chicken” or “1 oats with milk”. Protein, fibre and water fill in their habits; fruit and veg tick themselves; junk and sugar count as a slip.</p>`}
     ${renderPlan(dk)}
-    <button class="gr-open" data-act="grocery">${icon('bag', 17)}<span>Monthly groceries<small>Everything for a month, under ₹3,000</small></span>${icon('chevR', 16)}</button>
+    <button class="gr-open" data-act="grocery">${icon('bag', 17)}<span>Monthly groceries<small>Chicken, eggs and extras for a month, under ₹3,000</small></span>${icon('chevR', 16)}</button>
   </section>`;
 }
 function openFoodEdit(dk, id) {
@@ -1435,11 +1437,11 @@ function foodCustomSave() {
 }
 function openGrocery() {
   const total = GROCERY.reduce((a, g) => a + g[3], 0), groups = [...new Set(GROCERY.map(g => g[0]))];
-  openSheet(() => `<p class="help" style="margin:0 0 6px">Enough for one person for a month. Together it gives about 2,200 kcal, 105 g protein and 50 g fibre a day.</p>
+  openSheet(() => `<p class="help" style="margin:0 0 6px">What to buy on top of home or mess food (rice, roti, dal). It adds about 65 g protein a day, so with home meals you reach about 100 g protein and 30 g fibre.</p>
     ${groups.map(gr => `<div class="meal-h"><span>${gr}</span></div>${GROCERY.filter(g => g[0] === gr).map(([, n, q, p, why]) => `
       <div class="gr"><span class="gr-t"><b>${esc(n)} <em>${esc(q)}</em></b><span>${esc(why)}</span></span><span class="gr-p">₹${p}</span></div>`).join('')}`).join('')}
     <div class="gr-tot"><span>Total</span><b>₹${total.toLocaleString('en-IN')}</b></div>
-    <p class="help">Prices are rough local rates and change by shop and season. Salt, spices and tea are not included.</p>`, {title: 'Monthly groceries'});
+    <p class="help">Prices are rough local rates and change by shop and season.</p>`, {title: 'Monthly groceries'});
 }
 function openMyFoods() {
   openSheet(() => `${S.foods.filter(f => !f.gone).map(f => `<div class="zedit-row"><div class="zn"><b>${esc(f.n)}</b><span>Per ${esc(f.un)}: ${Math.round(f.d[0])} kcal · ${nfmt(f.d[1])} g protein · ${nfmt(f.d[4])} g fibre</span></div><button class="mini-btn danger" data-act="mf-del" data-id="${f.id}" aria-label="Remove">${icon('trash', 16)}</button></div>`).join('') || '<p class="help">No foods of your own yet.</p>'}`, {title: 'My foods'});

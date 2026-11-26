@@ -464,22 +464,19 @@ const HADITH = [
   ['Your body has a right over you.', 'Al-Bukhari 1975'],
 ];
 
-// Monthly groceries for one person, under ₹3,000. Prices are approximate local market rates (late 2026).
-// Together this gives about 2,200 kcal, 105 g protein and 50 g fibre a day. Salt, spices and tea are extra.
+// Monthly groceries for one person, under ₹3,000: what Huzaifa buys on top of home or mess food (rice, roti, dal).
+// He cooks only chicken and eggs, so everything else needs no cooking. Prices are approximate local rates (late 2026).
+// Adds about 65 g protein a day; with home meals that is about 100 g protein and 30 g fibre.
 // [group, item, how much, rough price ₹, what it's for]
 const GROCERY = [
-  ['Protein', 'Eggs', '60 (2 trays)', 400, '2 a day'],
-  ['Protein', 'Soya chunks', '1.5 kg', 285, '50 g a day, the cheapest protein'],
-  ['Protein', 'Toor dal', '1.5 kg', 230, '1 katori dal a day'],
-  ['Protein', 'Kabuli chana', '1 kg', 140, 'chole or boiled chana, 3 to 4 times a week'],
-  ['Protein', 'Peanuts', '500 g', 90, 'a small handful a day'],
-  ['Protein', 'Milk (toned)', '7.5 L', 360, '250 ml a day, with your oats'],
-  ['Grains', 'Yoga Bar protein oats', '750 g', 400, 'one 55 ml cup a day (a 1 kg pack lasts about 40 days)'],
-  ['Grains', 'Atta', '5 kg', 260, '5 to 6 roti a day'],
-  ['Grains', 'Rice', '2 kg', 120, '1 katori most days'],
-  ['Veg & fruit', 'Onion and tomato', '2.5 kg', 100, 'for cooking'],
-  ['Veg & fruit', 'Seasonal vegetables', '4 kg', 180, 'beans, cabbage, bhindi, carrot, cucumber: 1 katori sabzi a day'],
-  ['Veg & fruit', 'Bananas', '2 dozen', 120, 'almost 1 a day'],
-  ['Veg & fruit', 'Guava or seasonal fruit', '1 kg', 80, 'fibre and vitamin C'],
-  ['Cooking', 'Oil', '1 L', 160, 'about 2 tbsp a day'],
+  ['Cook', 'Chicken (boneless)', '2 kg', 640, 'about 70 g a day, or 140 g every other day'],
+  ['Cook', 'Eggs', '90 (3 trays)', 600, '3 a day: boiled, omelette or bhurji'],
+  ['Cook', 'Oil, ginger-garlic paste, chicken masala', '500 ml + 1 each', 185, 'for the chicken and eggs'],
+  ['No cooking', 'Yoga Bar protein oats', '750 g', 400, 'one 55 ml cup a day (a 1 kg pack lasts about 40 days)'],
+  ['No cooking', 'Milk (toned)', '7.5 L', 360, '250 ml a day, with your oats'],
+  ['No cooking', 'Curd', '3 kg', 200, 'a small katori a day'],
+  ['No cooking', 'Peanuts (roasted)', '500 g', 90, 'a small handful a day'],
+  ['Fruit & salad', 'Bananas', '3 dozen', 180, '1 a day'],
+  ['Fruit & salad', 'Guava or seasonal fruit', '2 kg', 160, 'fibre and vitamin C'],
+  ['Fruit & salad', 'Cucumber and carrot', '2 kg', 80, 'raw salad with lunch'],
 ];
